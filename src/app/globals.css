@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@plugin "../hero.ts";
+@source "../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: #0b141d;
+  --color-foreground: #ffffff;
+  --color-primary: #4cf09a;
+  --color-secondary: #111c2b;
+  --color-muted: #7e94a8;
+  
+  --color-nav-bg: #111c2b;
+  --color-sidebar-bg: #0b141d;
+  --color-chat-bg: #0b141d;
+  --color-card-bg: #111c2b;
+}
+
+:root {
+  --background: #0b141d;
+  --foreground: #ffffff;
+}
+
+.dark {
+  --background: #0b141d;
+  --foreground: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b141d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e2b3a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3a4d;
+}
+
