@@ -122,7 +122,7 @@ export default function DailyRewards() {
           <div className="w-full relative z-10 max-w-sm">
             <Button 
               onClick={handleClaim}
-              disabled={!canClaim || isSpinning} 
+              isDisabled={!canClaim || isSpinning} 
               className={`w-full h-20 rounded-[28px] font-black text-2xl transition-all ${
                 canClaim && !isSpinning
                   ? "bg-primary text-black shadow-2xl shadow-primary/30 hover:scale-105" 

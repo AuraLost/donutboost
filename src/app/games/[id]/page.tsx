@@ -310,7 +310,6 @@ export default function GamePage() {
                    maxValue={95}
                    step={1}
                    className="w-full"
-                   color="primary"
                  />
                  <p className="text-xs text-muted text-right font-bold tracking-widest">Multiplier: {(99/winChance).toFixed(2)}x</p>
               </div>
