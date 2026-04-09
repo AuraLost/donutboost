@@ -53,6 +53,11 @@ export default function GamePage() {
   const [diceRoll, setDiceRoll] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
 
+  // ========== PLINKO STATE ==========
+  const [plinkoDrops, setPlinkoDrops] = useState<{ id: number; path: number[]; multiplier: number }[]>([]);
+  const plinkoMultipliers = [21, 5.4, 2.1, 0.5, 0.4, 0.4, 0.5, 2.1, 5.4, 21];
+  const PLINKO_ROWS = 9;
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -186,6 +191,27 @@ export default function GamePage() {
     }, 50);
   };
 
+  const startPlinko = () => {
+     let pos = 0;
+     const path: number[] = [];
+     for(let i=0; i < PLINKO_ROWS; i++) {
+        const dir = Math.random() > 0.5 ? 1 : 0;
+        path.push(dir);
+        pos += dir;
+     }
+     
+     const mult = plinkoMultipliers[pos];
+     const dropId = Date.now() + Math.random();
+     setPlinkoDrops(prev => [...prev, { id: dropId, path, multiplier: mult }]);
+
+     setTimeout(() => {
+        const amt = Math.floor(betAmount * mult);
+        win(amt);
+        if (mult >= 2) openDialog(true, amt, `Plinko Hit! You won ${amt.toLocaleString()} Donuts!`);
+        setPlinkoDrops(prev => prev.filter(d => d.id !== dropId));
+     }, 2000);
+  };
+
   const handleAction = () => {
     if (isPlaying) {
        // If game is playing, action depends on game
@@ -202,6 +228,7 @@ export default function GamePage() {
     if (gameType === "crash") startCrash();
     else if (gameType === "mines") startMines();
     else if (gameType === "dice") startDice();
+    else if (gameType === "plinko") startPlinko();
     else {
       // Fallback
       startDice();
@@ -393,6 +420,48 @@ export default function GamePage() {
                    <p className="text-muted font-bold tracking-widest uppercase text-sm mt-8">
                      {isRolling ? "ROLLING..." : "ROLL THE DICE"}
                    </p>
+                </div>
+             </div>
+           )}
+
+           {/* PLINKO CANVAS */}
+           {gameType === "plinko" && (
+             <div className="w-full max-w-2xl h-[500px] bg-black/40 rounded-[35px] border border-white/5 shadow-2xl relative overflow-hidden flex flex-col">
+                <div className="flex-1 relative w-full h-full">
+                   {/* Generate Pegs Array visually */}
+                   {Array.from({length: PLINKO_ROWS}).map((_, rowIndex) => {
+                     const cols = rowIndex + 3;
+                     return (
+                        <div key={rowIndex} className="absolute w-full flex justify-center gap-6" style={{ top: `${(rowIndex / PLINKO_ROWS) * 80 + 10}%` }}>
+                           {Array.from({length: cols}).map((_, colIndex) => (
+                              <div key={colIndex} className="w-2.5 h-2.5 rounded-full bg-white/20 shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+                           ))}
+                        </div>
+                     )
+                   })}
+
+                   {/* Plinko Balls */}
+                   {plinkoDrops.map(drop => {
+                      return (
+                         <div 
+                           key={drop.id} 
+                           className="absolute top-0 left-1/2 -ml-3 w-6 h-6 rounded-full transition-all duration-[2000ms] ease-bounce"
+                           style={{
+                              transform: `translate(${(drop.path.reduce((a,b)=>a+b,0) - (PLINKO_ROWS)/2) * 24}px, 400px)`,
+                           }}
+                         >
+                            <img src="/image.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(59,130,246,0.6)] animate-spin" />
+                         </div>
+                      );
+                   })}
+                </div>
+                {/* Plinko Multipliers Bucket */}
+                <div className="flex w-full h-12 bg-black/50 border-t border-white/5 rounded-b-[35px] overflow-hidden">
+                   {plinkoMultipliers.map((m, i) => (
+                      <div key={i} className={`flex-1 flex justify-center items-center text-[10px] font-black ${m >= 2 ? "bg-success/20 text-success" : m >= 1 ? "bg-primary/20 text-primary" : "bg-danger/20 text-danger"} border-r border-black/50`}>
+                        {m}x
+                      </div>
+                   ))}
                 </div>
              </div>
            )}

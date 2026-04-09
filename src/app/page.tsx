@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[85vh] p-8 max-w-5xl mx-auto w-full text-center animate-in fade-in zoom-in-95 duration-1000 relative">
+    <div className="flex flex-col items-center pt-32 pb-16 px-8 max-w-5xl mx-auto w-full text-center animate-in fade-in zoom-in-95 duration-1000 relative">
       
       {/* Background Glows */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -z-10" />

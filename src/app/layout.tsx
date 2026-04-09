@@ -31,16 +31,12 @@ export default function RootLayout({
       <body className="antialiased min-h-screen bg-background overflow-hidden">
         <Providers>
           <div className="flex h-screen w-full overflow-hidden">
-            <Sidebar />
-            
             <div className="flex flex-col flex-1 min-w-0">
               <Navbar />
               <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
                 {children}
               </main>
             </div>
-
-            <ChatSidebar />
           </div>
         </Providers>
       </body>
