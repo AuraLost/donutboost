@@ -20,9 +20,6 @@ export default function Home() {
             src="/image.png" 
             alt="Donut SMP Logo" 
             className="w-48 h-48 md:w-64 md:h-64 object-contain relative z-10 drop-shadow-[0_20px_50px_rgba(59,130,246,0.5)] hover:-translate-y-4 transition-all duration-500 ease-out animate-bounce"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍩</text></svg>';
-            }}
           />
         </div>
 
