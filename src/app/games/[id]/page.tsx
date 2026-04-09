@@ -6,15 +6,12 @@ import {
   Button, 
   Input, 
   Tabs,
-  Separator,
-  ScrollShadow
+  AlertDialog
 } from "@heroui/react";
 import { 
   Play, 
   RotateCcw, 
-  ChevronLeft, 
-  History,
-  TrendingUp,
+  ChevronLeft,
   Settings2,
   Wallet
 } from "lucide-react";
@@ -28,29 +25,60 @@ export default function GamePage() {
   const { balance, bet, win } = useEconomy();
   const [betAmount, setBetAmount] = React.useState(1000000); // Default to 1M
   const [isPlaying, setIsPlaying] = React.useState(false);
+  
+  // Custom dialog state
+  const [dialogState, setDialogState] = React.useState<{ isOpen: boolean, won: boolean, amount?: number, message: string }>({
+    isOpen: false,
+    won: false,
+    message: ""
+  });
 
   const handleBet = () => {
     if (bet(betAmount)) {
       setIsPlaying(true);
-      // Simulate a win/loss after 2 seconds
+      // Simulate a robust animation phase (e.g. dice rolling, crash flying)
       setTimeout(() => {
         setIsPlaying(false);
         const won = Math.random() > 0.5;
         if (won) {
           const winAmt = betAmount * 2;
           win(winAmt);
-          alert(`You WON ${winAmt.toLocaleString()} Donuts! 🍩`);
+          setDialogState({ isOpen: true, won: true, amount: winAmt, message: `You successfully doubled your bet and won ${winAmt.toLocaleString()} Donuts!` });
         } else {
-          alert("Bust! Better luck next time.");
+          setDialogState({ isOpen: true, won: false, message: `Ouch, you busted and lost the bet. Better luck next time!` });
         }
-      }, 2000);
+      }, 2500);
     } else {
-      alert("Insufficient Balance! Minimum 1M Donuts required.");
+      setDialogState({ isOpen: true, won: false, message: "Insufficient Balance! Minimum 1M Donuts required to play." });
     }
   };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
+      
+      {/* Result Dialog */}
+      <AlertDialog.Backdrop isOpen={dialogState.isOpen} onOpenChange={(open) => setDialogState(prev => ({...prev, isOpen: open}))} variant="blur">
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[400px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status={dialogState.won ? "success" : "danger"} />
+              <AlertDialog.Heading>{dialogState.won ? "Winner!" : "Bust"}</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              <p className="text-muted leading-relaxed">
+                {dialogState.message}
+              </p>
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <Button slot="close" variant={dialogState.won ? "primary" : "secondary"}>
+                Continue
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
+
       {/* Game Header */}
       <div className="flex items-center justify-between px-8 h-20 border-b border-white/5 bg-black/20">
         <div className="flex items-center gap-6">
@@ -130,31 +158,34 @@ export default function GamePage() {
            <Button 
              onClick={handleBet}
              isDisabled={isPlaying}
-             className={`w-full h-20 font-black text-2xl rounded-[28px] transition-all ${
+             className={`w-full h-20 font-black text-2xl rounded-[28px] transition-all duration-300 ${
                isPlaying 
-                 ? "bg-white/10 text-muted italic" 
+                 ? "bg-white/10 text-muted italic scale-95" 
                  : "bg-primary text-black shadow-2xl shadow-primary/20 hover:scale-[1.03]"
              }`}
            >
-             {isPlaying ? "WAITING..." : "START BET"}
+             {isPlaying ? "PLAYING..." : "START BET"}
            </Button>
         </aside>
 
         {/* Game Canvas */}
         <main className="flex-1 relative bg-black/30 flex items-center justify-center p-12">
-           <div className="w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed border-white/5 bg-black/10 flex flex-col items-center justify-center gap-8 group relative overflow-hidden">
-              <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-              <div className="relative">
-                 <div className={`absolute inset-0 bg-primary/30 blur-[80px] rounded-full scale-150 transition-all duration-1000 ${isPlaying ? "opacity-100 scale-[2] animate-pulse" : "opacity-0"}`} />
-                 <Play size={100} className={`relative z-10 transition-all duration-700 ${isPlaying ? "text-primary scale-110 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "text-muted opacity-20"}`} fill="currentColor" />
+           {/* Visual Animation Box during play state */}
+           <div className={`w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed ${isPlaying ? "border-primary/50 bg-primary/5 shadow-[0_0_60px_rgba(59,130,246,0.1)]" : "border-white/5 bg-black/10"} flex flex-col items-center justify-center gap-8 relative overflow-hidden transition-all duration-700`}>
+              
+              <div className="relative flex items-center justify-center">
+                 <div className={`absolute inset-0 bg-primary/30 blur-[80px] rounded-full scale-[2] transition-all duration-1000 ${isPlaying ? "opacity-100 animate-spin" : "opacity-0"}`} />
+                 
+                 {/* Main Icon (spins and throbs when playing) */}
+                 <div className={`transition-all duration-700 ${isPlaying ? "animate-bounce scale-125" : ""}`}>
+                   <Play size={100} className={`relative z-10 transition-all duration-500 ${isPlaying ? "text-primary drop-shadow-[0_0_30px_rgba(59,130,246,0.8)]" : "text-muted opacity-20"}`} fill="currentColor" />
+                 </div>
               </div>
+
               <div className="text-center space-y-3 relative z-10">
-                 <h2 className={`text-4xl font-black tracking-tighter italic transition-all duration-700 ${isPlaying ? "text-white" : "text-muted"}`}>
-                   {isPlaying ? "BETTING ACTIVE" : "PLACE YOUR BET"}
+                 <h2 className={`text-4xl font-black tracking-tighter italic transition-all duration-700 ${isPlaying ? "text-white animate-pulse" : "text-muted"}`}>
+                   {isPlaying ? "CALCULATING OUTCOME..." : "AWAITING BET"}
                  </h2>
-                 <p className="text-muted font-bold tracking-widest uppercase text-[10px]">
-                   Network Status: <span className="text-success">Optimal</span>
-                 </p>
               </div>
            </div>
 
