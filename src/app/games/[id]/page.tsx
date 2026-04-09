@@ -54,9 +54,12 @@ export default function GamePage() {
   const [isRolling, setIsRolling] = useState(false);
 
   // ========== PLINKO STATE ==========
-  const [plinkoDrops, setPlinkoDrops] = useState<{ id: number; path: number[]; multiplier: number }[]>([]);
+  // Each drop tracks current animated row + cumulative X offset
+  const [plinkoDrops, setPlinkoDrops] = useState<{ id: number; row: number; x: number; path: number[]; multiplier: number }[]>([]);
   const plinkoMultipliers = [21, 5.4, 2.1, 0.5, 0.4, 0.4, 0.5, 2.1, 5.4, 21];
   const PLINKO_ROWS = 9;
+  const PEG_SPACING_X = 36; // px between pegs horizontally
+  const PEG_SPACING_Y = 46; // px between rows
 
   // Cleanup
   useEffect(() => {
@@ -192,24 +195,43 @@ export default function GamePage() {
   };
 
   const startPlinko = () => {
-     let pos = 0;
+     // Pre-compute full path
      const path: number[] = [];
-     for(let i=0; i < PLINKO_ROWS; i++) {
+     let finalPos = 0;
+     for (let i = 0; i < PLINKO_ROWS; i++) {
         const dir = Math.random() > 0.5 ? 1 : 0;
         path.push(dir);
-        pos += dir;
+        finalPos += dir;
      }
-     
-     const mult = plinkoMultipliers[pos];
-     const dropId = Date.now() + Math.random();
-     setPlinkoDrops(prev => [...prev, { id: dropId, path, multiplier: mult }]);
 
-     setTimeout(() => {
-        const amt = Math.floor(betAmount * mult);
-        win(amt);
-        if (mult >= 2) openDialog(true, amt, `Plinko Hit! You won ${amt.toLocaleString()} Donuts!`);
-        setPlinkoDrops(prev => prev.filter(d => d.id !== dropId));
-     }, 2000);
+     const mult = plinkoMultipliers[Math.min(finalPos, plinkoMultipliers.length - 1)];
+     const dropId = Date.now() + Math.random();
+
+     // Start drop with row=0, x=0
+     setPlinkoDrops(prev => [...prev, { id: dropId, row: 0, x: 0, path, multiplier: mult }]);
+
+     // Step ball row by row
+     let currentRow = 0;
+     let currentX = 0;
+     const stepInterval = setInterval(() => {
+        currentRow++;
+        if (currentRow <= PLINKO_ROWS) {
+           const dir = path[currentRow - 1]; // 0 = left, 1 = right
+           currentX += dir === 1 ? PEG_SPACING_X / 2 : -PEG_SPACING_X / 2;
+           setPlinkoDrops(prev => prev.map(d =>
+              d.id === dropId ? { ...d, row: currentRow, x: currentX } : d
+           ));
+        } else {
+           clearInterval(stepInterval);
+           // Resolve bet
+           const amt = Math.floor(betAmount * mult);
+           win(amt);
+           if (mult >= 1) openDialog(mult >= 2, amt, mult >= 2 ? `Plinko! Won $${amt.toLocaleString()}` : `Landed on ${mult}x. Got $${amt.toLocaleString()}`);
+           setTimeout(() => {
+              setPlinkoDrops(prev => prev.filter(d => d.id !== dropId));
+           }, 600);
+        }
+     }, 200); // 200ms per row = ~1.8s total
   };
 
   const handleAction = () => {
@@ -426,39 +448,42 @@ export default function GamePage() {
 
            {/* PLINKO CANVAS */}
            {gameType === "plinko" && (
-             <div className="w-full max-w-2xl h-[500px] bg-black/40 rounded-[35px] border border-white/5 shadow-2xl relative overflow-hidden flex flex-col">
-                <div className="flex-1 relative w-full h-full">
-                   {/* Generate Pegs Array visually */}
+             <div className="w-full max-w-2xl bg-black/40 rounded-[35px] border border-white/5 shadow-2xl relative overflow-hidden flex flex-col" style={{ height: `${PLINKO_ROWS * PEG_SPACING_Y + 80}px` }}>
+                <div className="flex-1 relative w-full">
+                   {/* Pegs */}
                    {Array.from({length: PLINKO_ROWS}).map((_, rowIndex) => {
                      const cols = rowIndex + 3;
                      return (
-                        <div key={rowIndex} className="absolute w-full flex justify-center gap-6" style={{ top: `${(rowIndex / PLINKO_ROWS) * 80 + 10}%` }}>
+                        <div key={rowIndex} className="absolute w-full flex justify-center" style={{ top: `${rowIndex * PEG_SPACING_Y + 20}px`, gap: `${PEG_SPACING_X - 4}px` }}>
                            {Array.from({length: cols}).map((_, colIndex) => (
-                              <div key={colIndex} className="w-2.5 h-2.5 rounded-full bg-white/20 shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+                              <div key={colIndex} className="w-2.5 h-2.5 rounded-full bg-white/30 shadow-[0_0_8px_rgba(255,255,255,0.15)] shrink-0" />
                            ))}
                         </div>
                      )
                    })}
 
-                   {/* Plinko Balls */}
-                   {plinkoDrops.map(drop => {
-                      return (
-                         <div 
-                           key={drop.id} 
-                           className="absolute top-0 left-1/2 -ml-3 w-6 h-6 rounded-full transition-all duration-[2000ms] ease-bounce"
-                           style={{
-                              transform: `translate(${(drop.path.reduce((a,b)=>a+b,0) - (PLINKO_ROWS)/2) * 24}px, 400px)`,
-                           }}
-                         >
-                            <img src="/donutsmp.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(59,130,246,0.6)] animate-spin" />
-                         </div>
-                      );
-                   })}
+                   {/* Balls — step-by-step position */}
+                   {plinkoDrops.map(drop => (
+                      <div 
+                        key={drop.id} 
+                        className="absolute w-7 h-7"
+                        style={{
+                           top: `${drop.row * PEG_SPACING_Y + 4}px`,
+                           left: "50%",
+                           transform: `translateX(calc(-50% + ${drop.x}px))`,
+                           transition: "top 0.18s ease-in, transform 0.18s ease-in-out",
+                           zIndex: 10,
+                        }}
+                      >
+                         <img src="/donutsmp.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(59,130,246,0.7)]" />
+                      </div>
+                   ))}
                 </div>
-                {/* Plinko Multipliers Bucket */}
-                <div className="flex w-full h-12 bg-black/50 border-t border-white/5 rounded-b-[35px] overflow-hidden">
+
+                {/* Multiplier buckets */}
+                <div className="flex w-full h-11 bg-black/60 border-t border-white/5 rounded-b-[35px] overflow-hidden shrink-0">
                    {plinkoMultipliers.map((m, i) => (
-                      <div key={i} className={`flex-1 flex justify-center items-center text-[10px] font-black ${m >= 2 ? "bg-success/20 text-success" : m >= 1 ? "bg-primary/20 text-primary" : "bg-danger/20 text-danger"} border-r border-black/50`}>
+                      <div key={i} className={`flex-1 flex justify-center items-center text-[9px] font-black border-r border-black/40 last:border-0 ${m >= 5 ? "bg-warning/20 text-warning" : m >= 2 ? "bg-success/20 text-success" : m >= 1 ? "bg-primary/15 text-primary" : "bg-danger/15 text-danger"}`}>
                         {m}x
                       </div>
                    ))}
