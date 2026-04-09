@@ -58,7 +58,7 @@ export default function GamePage() {
            <div className="space-y-3">
               <label className="text-[10px] font-black uppercase tracking-widest text-muted">Auto Bet</label>
               <div className="flex p-1 bg-black/20 rounded-xl">
-                 <Button fullWidth variant="soft" className="bg-white/5 text-white font-bold h-10 rounded-lg">Manual</Button>
+                 <Button fullWidth variant="secondary" className="bg-white/5 text-white font-bold h-10 rounded-lg">Manual</Button>
                  <Button fullWidth variant="ghost" className="text-muted font-bold h-10 border-none shadow-none">Auto</Button>
               </div>
            </div>

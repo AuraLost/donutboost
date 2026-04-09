@@ -42,7 +42,7 @@ export default function DailyRewards() {
 
           <div className="w-full relative z-10">
             <Button 
-              disabled={!canClaim} 
+              isDisabled={!canClaim} 
               className={`w-full h-16 rounded-2xl font-black text-xl transition-all ${
                 canClaim ? "bg-primary text-black shadow-lg shadow-primary/20" : "bg-white/5 text-muted italic"
               }`}

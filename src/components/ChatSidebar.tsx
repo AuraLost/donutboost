@@ -77,6 +77,7 @@ export const ChatSidebar = () => {
         <div className="relative opacity-50">
           <Input
             disabled
+
             placeholder="Type a message..."
             className="w-full"
           />
