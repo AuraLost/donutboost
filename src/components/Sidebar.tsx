@@ -1,110 +1,136 @@
 "use client";
 
 import React from "react";
-import { Button, Tooltip, TooltipTrigger, TooltipContent, Separator } from "@heroui/react";
+import { 
+  Button, 
+  Tooltip, 
+  Separator,
+  ScrollShadow
+} from "@heroui/react";
 import { 
   Home, 
-  Gamepad2, 
-  Users, 
-  ShieldCheck, 
   Gift, 
-  History, 
-  Settings,
-  Menu,
-  ChevronLeft
+  Trophy, 
+  Gamepad2,
+  LayoutGrid,
+  Zap,
+  Dice5,
+  Coins,
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
-  { icon: Home, label: "Home", href: "/" },
-  { icon: Gamepad2, label: "Games", href: "/games" },
-  { icon: Users, label: "Referrals", href: "/referrals" },
-  { icon: ShieldCheck, label: "Provably Fair", href: "/provably-fair" },
-  { icon: Gift, label: "Daily Rewards", href: "/daily" },
-  { icon: History, label: "Live Bets", href: "/livebets" },
+const games = [
+  { id: "crash", name: "Crash", icon: Zap },
+  { id: "mines", name: "Mines", icon: ShieldCheck },
+  { id: "plinko", name: "Plinko", icon: LayoutGrid },
+  { id: "dice", name: "Dice", icon: Dice5 },
+  { id: "blackjack", name: "Blackjack", icon: Coins },
 ];
 
-export const Sidebar = () => {
+export function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = React.useState(true);
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+
+  const navItems = [
+    { name: "Home", icon: Home, href: "/" },
+    { name: "Daily Rewards", icon: Gift, href: "/daily" },
+    { name: "Live Wins", icon: Trophy, href: "/livebets" },
+  ];
 
   return (
     <aside 
-      className={`flex flex-col border-r border-white/5 bg-sidebar-bg transition-all duration-300 z-40 ${
-        isCollapsed ? "w-20" : "w-64"
+      className={`relative h-full flex flex-col transition-all duration-500 border-r border-white/5 bg-secondary/30 backdrop-blur-xl ${
+        isCollapsed ? "w-[80px]" : "w-[240px]"
       }`}
     >
-      <div className="flex h-16 items-center justify-between px-6">
-        {!isCollapsed && (
-          <span className="text-xl font-bold tracking-tight text-primary">
-            DONUT<span className="text-white">BOOST</span>
-          </span>
-        )}
-        <Button
-          isIconOnly
-          variant="ghost"
-          onPress={() => setIsCollapsed(!isCollapsed)}
-          className="text-muted hover:text-white border-none shadow-none"
-        >
-          {isCollapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
-        </Button>
-      </div>
+      {/* Collapse Toggle */}
+      <Button
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        className="absolute -right-3 top-20 z-50 rounded-full bg-secondary border border-white/5 shadow-xl text-primary"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </Button>
 
-      <div className="flex-1 space-y-2 px-3 py-4">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Tooltip key={item.href}>
-              <TooltipTrigger>
-                <div className="w-full">
-                  <Link href={item.href}>
-                    <Button
-                      fullWidth
-                      variant={isActive ? "outline" : "ghost"}
-                      className={`justify-start h-12 gap-4 border-none shadow-none ${
-                        isActive ? "bg-primary/10 text-primary" : "text-muted hover:text-white"
-                      } ${isCollapsed ? "px-0 justify-center min-w-0" : "px-4"}`}
+      {/* Main Nav */}
+      <ScrollShadow className="flex-1 px-3 py-6 space-y-6">
+        <div className="space-y-2">
+          {navItems.map((item) => (
+            <Link key={item.name} href={item.href}>
+              <Tooltip content={item.name} placement="right" isDisabled={!isCollapsed}>
+                <Button
+                  fullWidth
+                  variant={pathname === item.href ? "secondary" : "ghost"}
+                  className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
+                    pathname === item.href 
+                      ? "bg-primary/20 text-primary border-none" 
+                      : "text-muted hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <item.icon size={22} className={`${pathname === item.href ? "text-primary" : "group-hover:text-primary transition-colors duration-300"}`} />
+                  {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{item.name}</span>}
+                  {pathname === item.href && !isCollapsed && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                  )}
+                </Button>
+              </Tooltip>
+            </Link>
+          ))}
+        </div>
 
-                    >
-                      <item.icon size={22} className={isActive ? "text-primary" : ""} />
-                      {!isCollapsed && <span className="font-medium">{item.label}</span>}
-                    </Button>
-                  </Link>
-                </div>
-              </TooltipTrigger>
-              {isCollapsed && (
-                <TooltipContent placement="right">
-                  {item.label}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          );
-        })}
-      </div>
+        <Separator className="bg-white/5 mx-2" />
 
-      <Separator className="opacity-5" />
+        <div className="space-y-2">
+          {!isCollapsed && <p className="text-[10px] font-black text-muted uppercase tracking-widest px-4 mb-4">GAMES</p>}
+          {games.map((game) => (
+            <Link key={game.id} href={`/games/${game.id}`}>
+              <Tooltip content={game.name} placement="right" isDisabled={!isCollapsed}>
+                <Button
+                  fullWidth
+                  variant={pathname.includes(game.id) ? "secondary" : "ghost"}
+                  className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
+                    pathname.includes(game.id) 
+                      ? "bg-primary/10 text-primary border-none" 
+                      : "text-muted hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <game.icon size={22} className={`${pathname.includes(game.id) ? "text-primary" : "group-hover:text-primary transition-colors"}`} />
+                  {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{game.name}</span>}
+                  {pathname.includes(game.id) && !isCollapsed && (
+                    <div className="ml-auto w-1 h-4 bg-primary rounded-full" />
+                  )}
+                </Button>
+              </Tooltip>
+            </Link>
+          ))}
+        </div>
+      </ScrollShadow>
 
-      <div className="p-4">
-        <Tooltip>
-          <TooltipTrigger>
-            <div className="w-full">
-              <Button
-                fullWidth
-                variant="ghost"
-                className={`justify-start gap-4 text-muted hover:text-white border-none shadow-none ${isCollapsed ? "justify-center px-0 min-w-0" : "px-4"}`}
-              >
-                <Settings size={22} />
-                {!isCollapsed && <span className="font-medium">Settings</span>}
-              </Button>
-            </div>
-          </TooltipTrigger>
-          {isCollapsed && (
-            <TooltipContent placement="right">Settings</TooltipContent>
-          )}
-        </Tooltip>
+      {/* Footer / Stats Block In Sidebar */}
+      <div className="p-4 bg-black/20 border-t border-white/5">
+         {!isCollapsed ? (
+           <div className="bg-secondary/40 p-3 rounded-2xl space-y-2 border border-white/5">
+              <div className="flex items-center justify-between">
+                 <span className="text-[10px] text-muted font-black">24H VOL</span>
+                 <span className="text-xs font-black text-primary">12.4T</span>
+              </div>
+              <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-full bg-primary w-2/3 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+              </div>
+           </div>
+         ) : (
+           <div className="flex justify-center">
+              <div className="w-1.5 h-8 bg-primary/20 rounded-full" />
+           </div>
+         )}
       </div>
     </aside>
   );
-};
-
+}

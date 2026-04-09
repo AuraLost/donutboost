@@ -3,52 +3,54 @@
 
 @custom-variant dark (&:is(.dark *));
 
-
 @theme {
-  --color-background: #0b141d;
+  --color-background: #050a0f;
   --color-foreground: #ffffff;
-  --color-primary: #4cf09a;
-  --color-secondary: #111c2b;
-  --color-muted: #7e94a8;
   
-  --color-nav-bg: #111c2b;
-  --color-sidebar-bg: #0b141d;
-  --color-chat-bg: #0b141d;
-  --color-card-bg: #111c2b;
+  --color-primary: #3b82f6; /* Electric Blue */
+  --color-primary-foreground: #ffffff;
+  
+  --color-secondary: #0f172a; /* Deep Navy/Black */
+  --color-secondary-foreground: #94a3b8;
+  
+  --color-accent: #0284c7;
+  --color-muted: #64748b;
+  
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+  
+  --radius-3xl: 2rem;
+  --radius-2xl: 1.25rem;
+  --radius-xl: 0.75rem;
 }
 
-:root {
-  --background: #0b141d;
-  --foreground: #ffffff;
-}
-
-.dark {
-  --background: #0b141d;
-  --foreground: #ffffff;
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui;
+  }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  overflow-x: hidden;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar for a premium feel */
+/* Custom Scrollbar for Premium Feel */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b141d;
+  background: var(--color-background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e2b3a;
-  border-radius: 4px;
+  background: #1e293b;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a3a4d;
+  background: var(--color-primary);
 }
-

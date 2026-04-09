@@ -5,7 +5,8 @@ import {
   Card, 
   Button, 
   Chip,
-  ScrollShadow
+  Tabs,
+  Tab
 } from "@heroui/react";
 import { 
   Play, 
@@ -13,142 +14,140 @@ import {
   Award, 
   Zap,
   Gamepad2,
-  Info
+  Info,
+  ArrowUpRight,
+  ShieldCheck,
+  Gem
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 const games = [
-  { id: "blackjack", name: "Blackjack", category: "Table", color: "bg-blue-500", image: "https://images.unsplash.com/photo-1511193311914-0346f16efe90?q=80&w=200&auto=format&fit=crop" },
-  { id: "crash", name: "Crash", category: "Instant", color: "bg-orange-500", image: "https://images.unsplash.com/photo-1614028674026-a65e31bfd27c?q=80&w=200&auto=format&fit=crop" },
-  { id: "mines", name: "Mines", category: "Strategy", color: "bg-green-500", image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=200&auto=format&fit=crop" },
-  { id: "plinko", name: "Plinko", category: "Luck", color: "bg-pink-500", image: "https://images.unsplash.com/photo-1596838132731-dd307afbd979?q=80&w=200&auto=format&fit=crop" },
-  { id: "dice", name: "Dice", category: "Classic", color: "bg-purple-500", image: "https://images.unsplash.com/photo-1553481187-be93c21490a9?q=80&w=200&auto=format&fit=crop" },
-  { id: "hilo", name: "HiLo", category: "Card", color: "bg-red-500", image: "https://images.unsplash.com/photo-1533230408708-8f9f91d1235a?q=80&w=200&auto=format&fit=crop" },
+  { id: "crash", name: "Crash", category: "Instant", image: "https://images.unsplash.com/photo-1614028674026-a65e31bfd27c?q=80&w=200&auto=format&fit=crop" },
+  { id: "mines", name: "Mines", category: "Strategy", image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=200&auto=format&fit=crop" },
+  { id: "plinko", name: "Plinko", category: "Luck", image: "https://images.unsplash.com/photo-1596838132731-dd307afbd979?q=80&w=200&auto=format&fit=crop" },
+  { id: "dice", name: "Dice", category: "Classic", image: "https://images.unsplash.com/photo-1553481187-be93c21490a9?q=80&w=200&auto=format&fit=crop" },
 ];
 
 export default function Home() {
   return (
     <div className="flex flex-col gap-8 p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
-      {/* Hero Banner Section */}
-      <section className="relative w-full h-[320px] rounded-[32px] overflow-hidden group shadow-2xl">
+      
+      {/* Hero / Sign-up Incentive */}
+      <section className="relative w-full h-[360px] rounded-[40px] overflow-hidden group shadow-2xl border border-white/5">
         <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent z-10" />
-        <div className="relative z-20 flex flex-col justify-center h-full p-12 gap-6 max-w-xl">
+        <div className="relative z-20 flex flex-col justify-center h-full p-12 gap-6 max-w-2xl">
           <div className="flex items-center gap-3">
-             <Chip variant="soft" className="bg-primary/20 text-primary border-none text-[10px] font-bold uppercase tracking-widest px-3">
-               Featured Game
+             <Chip variant="soft" className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase tracking-[0.2em] px-3">
+               SIGN UP BONUS
              </Chip>
-             <div className="flex items-center gap-1 text-muted text-xs">
-               <TrendingUp size={14} />
-               <span>Over 1,240 players live</span>
+             <div className="flex items-center gap-1 text-primary text-xs font-black italic">
+               <Gem size={14} className="animate-pulse" />
+               <span>GET 1M DONUTS INSTANTLY</span>
              </div>
           </div>
-          <h1 className="text-5xl font-black tracking-tighter leading-[1.1]">
-            WIN BIG ON <br />
-            <span className="text-primary">DONUT CRASH</span>
+          <h1 className="text-6xl font-black tracking-tighter leading-[0.9]">
+            THE FUTURE OF <br />
+            <span className="text-primary italic">DONUT SMP</span>
           </h1>
-          <p className="text-muted text-lg font-medium max-w-sm">
-            The most trusted Minecraft-themed gaming platform since 2024.
+          <p className="text-muted text-lg font-medium max-w-sm leading-relaxed">
+            Trade, bet, and grow your empire in the most advanced Minecraft economy ever built.
           </p>
           <div className="flex gap-4">
-            <Button size="lg" className="bg-primary text-black font-black px-8 h-14 rounded-2xl flex items-center gap-2 border-none shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
-              <Play size={20} fill="currentColor" />
-              PLAY NOW
-            </Button>
-            <Button size="lg" variant="ghost" className="border-white/10 text-white font-bold h-14 px-8 rounded-2xl flex items-center gap-2 border shadow-none hover:bg-white/5">
-              <Info size={20} />
-              LEARN MORE
+            <Button size="lg" className="bg-primary text-black font-black px-10 h-16 rounded-[22px] flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 transition-all">
+              Join the Economy
+              <ArrowUpRight size={20} />
             </Button>
           </div>
         </div>
         
-        {/* Animated Background */}
-        <div className="absolute top-0 right-0 w-2/3 h-full overflow-hidden opacity-30 group-hover:opacity-50 transition-all duration-700">
-           <div className="grid grid-cols-12 gap-1 w-full h-full rotate-12 scale-150">
-             {Array.from({ length: 144 }).map((_, i) => (
-               <div key={i} className={`aspect-square rounded-sm ${i % 9 === 0 ? "bg-primary/40 animate-pulse" : "bg-white/5"}`} />
+        {/* Abstract Blue Background */}
+        <div className="absolute top-0 right-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+           <div className="absolute inset-0 bg-gradient-to-l from-primary/30 to-transparent z-0" />
+           <div className="grid grid-cols-6 gap-2 w-full h-full rotate-45 scale-150 transform translate-x-1/4">
+             {Array.from({ length: 36 }).map((_, i) => (
+               <div key={i} className={`aspect-square rounded-[32px] ${i % 5 === 0 ? "bg-primary/40 animate-pulse" : "bg-white/5"}`} />
              ))}
            </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-secondary/40 border-white/5 p-6 rounded-[24px] shadow-none flex flex-row items-center gap-5">
-          <div className="p-4 bg-primary/10 rounded-2xl">
-            <Award className="text-primary" size={28} />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted font-black uppercase tracking-widest mb-1">Total Distributed</p>
-            <p className="text-2xl font-black">$42,851,200</p>
-          </div>
-        </Card>
-        <Card className="bg-secondary/40 border-white/5 p-6 rounded-[24px] shadow-none flex flex-row items-center gap-5">
-          <div className="p-4 bg-blue-500/10 rounded-2xl">
-            <TrendingUp className="text-blue-500" size={28} />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted font-black uppercase tracking-widest mb-1">Active Bets</p>
-            <p className="text-2xl font-black">12,482</p>
-          </div>
-        </Card>
-        <Card className="bg-secondary/40 border-white/5 p-6 rounded-[24px] shadow-none flex flex-row items-center gap-5">
-          <div className="p-4 bg-orange-500/10 rounded-2xl">
-            <Zap className="text-orange-500" size={28} />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted font-black uppercase tracking-widest mb-1">Last Big Jackpot</p>
-            <p className="text-2xl font-black text-orange-400">$5,240.24</p>
-          </div>
-        </Card>
-      </section>
+      {/* Constraints Info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+         <Card className="bg-primary/5 border-primary/20 p-5 rounded-3xl space-y-1">
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">MIN DEPOSIT</p>
+            <p className="text-2xl font-black italic">1,000,000</p>
+         </Card>
+         <Card className="bg-white/5 border-white/5 p-5 rounded-3xl space-y-1">
+            <p className="text-[10px] font-black text-muted uppercase tracking-widest">MAX DEPOSIT</p>
+            <p className="text-2xl font-black">1,000,000,000,000</p>
+         </Card>
+         <Card className="bg-primary/5 border-primary/20 p-5 rounded-3xl space-y-1">
+            <p className="text-[10px] font-black text-primary uppercase tracking-widest">MIN PAYOUT</p>
+            <p className="text-2xl font-black italic">10,000,000</p>
+         </Card>
+         <Card className="bg-white/5 border-white/5 p-5 rounded-3xl space-y-1">
+            <p className="text-[10px] font-black text-muted uppercase tracking-widest">MAX PAYOUT</p>
+            <p className="text-2xl font-black">1,000,000,000</p>
+         </Card>
+      </div>
 
       {/* Game Grid Section */}
       <section className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-white/5 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-1.5 h-8 bg-primary rounded-full" />
-            <h2 className="text-2xl font-black tracking-tight">POPULAR GAMES</h2>
+            <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(59,130,246,0.6)]" />
+            <h2 className="text-3xl font-black tracking-tight italic">LIVE ECONOMY</h2>
           </div>
-          <Button variant="ghost" className="text-muted hover:text-white border-none shadow-none font-bold text-xs uppercase tracking-widest">
-            Show All Games
-          </Button>
+          <Tabs aria-label="Game Filter" variant="underlined" classNames={{ cursor: "bg-primary", tab: "font-black uppercase tracking-widest text-[10px] h-12" }}>
+            <Tab key="all" title="EVERYTHING" />
+            <Tab key="pvp" title="PVP BETS" />
+            <Tab key="market" title="MARKET" />
+          </Tabs>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {games.map((game) => (
-            <Card 
-              key={game.id} 
-              className="bg-secondary/40 border-white/5 overflow-hidden group hover:bg-secondary/60 transition-all duration-300 rounded-[28px] cursor-pointer"
-            >
-              <div className="relative h-44 w-full overflow-hidden">
-                <Image 
-                  src={game.image} 
-                  alt={game.name} 
-                  fill 
-                  className="object-cover group-hover:scale-110 transition-transform duration-700 brightness-75"
-                />
-                <div className="absolute top-4 right-4 z-20">
-                  <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white/10">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-black text-white uppercase tracking-tighter">Live</span>
+            <Link key={game.id} href={`/games/${game.id}`}>
+              <Card 
+                className="bg-secondary/40 border-white/5 overflow-hidden group hover:bg-secondary/60 transition-all duration-500 rounded-[35px] cursor-pointer"
+              >
+                <div className="relative h-52 w-full overflow-hidden">
+                  <Image 
+                    src={game.image} 
+                    alt={game.name} 
+                    fill 
+                    className="object-cover group-hover:scale-110 transition-transform duration-700 brightness-90 saturate-[0.8] group-hover:saturate-100"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-secondary via-transparent to-transparent opacity-60" />
+                  <div className="absolute bottom-4 left-6 z-20">
+                     <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">{game.category}</p>
+                     <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">{game.name}</h3>
                   </div>
                 </div>
-              </div>
-              <div className="p-6 flex flex-col gap-4">
-                <div className="flex flex-col">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">{game.category}</p>
-                  <h3 className="text-xl font-black text-white tracking-tight">{game.name}</h3>
+                <div className="p-6">
+                  <Button className="w-full bg-white/5 hover:bg-primary hover:text-black text-white font-black border-none transition-all py-7 rounded-2xl text-base tracking-widest">
+                    ENTER GAME
+                  </Button>
                 </div>
-                <Button className="w-full bg-white/5 hover:bg-primary hover:text-black text-white font-black border-none transition-all py-6 rounded-2xl">
-                  PLAY GAME
-                </Button>
-              </div>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* Bottom Spacer */}
+      {/* Market Ticker Footer */}
+      <div className="mt-12 bg-black/40 border border-white/5 p-4 rounded-full flex items-center overflow-hidden">
+         <div className="flex items-center gap-4 animate-marquee whitespace-nowrap">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-6 border-r border-white/10 last:border-none">
+                 <span className="text-[10px] font-black text-muted uppercase uppercase">PLAYER_{421 + i}</span>
+                 <span className="text-xs font-black text-success">+$2.1M</span>
+              </div>
+            ))}
+         </div>
+      </div>
+
       <div className="h-20" />
     </div>
   );

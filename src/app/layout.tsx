@@ -22,8 +22,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} dark text-foreground h-full`}>
-      <body className="antialiased h-full overflow-hidden bg-background">
+    <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
+      </head>
+      <body className="antialiased min-h-screen bg-background overflow-hidden">
         <Providers>
           <div className="flex h-screen w-full overflow-hidden">
             <Sidebar />
