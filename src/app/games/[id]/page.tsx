@@ -15,103 +15,149 @@ import {
   ChevronLeft, 
   History,
   TrendingUp,
-  Settings2
+  Settings2,
+  Wallet
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEconomy } from "@/hooks/use-economy";
 
 export default function GamePage() {
   const { id } = useParams();
   const gameName = typeof id === "string" ? id.charAt(0).toUpperCase() + id.slice(1) : "Game";
+  const { balance, bet, win } = useEconomy();
+  const [betAmount, setBetAmount] = React.useState(1000000); // Default to 1M
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  const handleBet = () => {
+    if (bet(betAmount)) {
+      setIsPlaying(true);
+      // Simulate a win/loss after 2 seconds
+      setTimeout(() => {
+        setIsPlaying(false);
+        const won = Math.random() > 0.5;
+        if (won) {
+          const winAmt = betAmount * 2;
+          win(winAmt);
+          alert(`You WON ${winAmt.toLocaleString()} Donuts! 🍩`);
+        } else {
+          alert("Bust! Better luck next time.");
+        }
+      }, 2000);
+    } else {
+      alert("Insufficient Balance! Minimum 1M Donuts required.");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
       {/* Game Header */}
-      <div className="flex items-center gap-4 p-6 border-b border-white/5 bg-secondary/10">
-        <Link href="/">
-           <Button isIconOnly variant="ghost" className="border-white/10 text-muted hover:text-white border-none shadow-none">
-             <ChevronLeft size={20} />
-           </Button>
-        </Link>
-        <div className="w-1 h-6 bg-primary rounded-full" />
-        <h1 className="text-2xl font-black uppercase tracking-tight">{gameName}</h1>
+      <div className="flex items-center justify-between px-8 h-20 border-b border-white/5 bg-black/20">
+        <div className="flex items-center gap-6">
+          <Link href="/">
+             <Button isIconOnly variant="ghost" className="border-white/10 text-muted hover:text-primary transition-colors border shadow-none rounded-xl">
+               <ChevronLeft size={20} />
+             </Button>
+          </Link>
+          <div className="flex flex-col">
+             <h1 className="text-xl font-black uppercase tracking-tighter italic">{gameName}</h1>
+             <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Live Economy</span>
+             </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/5">
+           <Wallet size={16} className="text-primary" />
+           <span className="text-sm font-black text-white">{(balance / 1000000).toFixed(2)}M</span>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Betting Panel */}
-        <aside className="w-80 border-r border-white/5 bg-secondary/5 p-6 flex flex-col gap-6">
+        <aside className="w-[340px] border-r border-white/5 bg-secondary/10 p-8 flex flex-col gap-8">
            <div className="space-y-4">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Bet Amount</label>
-              <div className="relative group">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Bet Amount (Donuts)</label>
+              <div className="relative">
                  <Input 
                    type="number" 
-                   defaultValue="100.00" 
-                   className="w-full bg-black/20"
+                   value={betAmount.toString()} 
+                   onChange={(e) => setBetAmount(Number(e.target.value))}
+                   className="w-full bg-black/40 h-14"
                  />
-                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 px-2 border-white/5 text-[10px] font-black min-w-0">1/2</Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 border-white/5 text-[10px] font-black min-w-0">2x</Button>
+                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1.5">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setBetAmount(prev => Math.floor(prev / 2))}
+                      className="h-9 min-w-[44px] bg-white/5 border-none text-[10px] font-black rounded-lg"
+                    >1/2</Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setBetAmount(prev => prev * 2)}
+                      className="h-9 min-w-[44px] bg-white/5 border-none text-[10px] font-black rounded-lg"
+                    >2x</Button>
                  </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                 <Button onClick={() => setBetAmount(1000000)} size="sm" variant="ghost" className="bg-white/5 border-none text-[10px] font-black">MIN (1M)</Button>
+                 <Button onClick={() => setBetAmount(1000000000)} size="sm" variant="ghost" className="bg-white/5 border-none text-[10px] font-black">MAX (1B)</Button>
               </div>
            </div>
 
-           <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-widest text-muted">Auto Bet</label>
-              <div className="flex p-1 bg-black/20 rounded-xl">
-                 <Button fullWidth variant="secondary" className="bg-white/5 text-white font-bold h-10 rounded-lg">Manual</Button>
-                 <Button fullWidth variant="ghost" className="text-muted font-bold h-10 border-none shadow-none">Auto</Button>
-              </div>
+           <div className="space-y-4">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Mode Preference</label>
+              <Tabs fullWidth variant="solid" classNames={{ cursor: "bg-primary", tab: "font-black text-[10px] h-11" }}>
+                 <Tab key="manual" title="MANUAL" />
+                 <Tab key="auto" title="AUTOMATED" />
+              </Tabs>
            </div>
 
            <div className="flex-1" />
 
-           <Button className="w-full h-16 bg-primary text-black font-black text-xl rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
-             BET
+           <Button 
+             onClick={handleBet}
+             isDisabled={isPlaying}
+             className={`w-full h-20 font-black text-2xl rounded-[28px] transition-all ${
+               isPlaying 
+                 ? "bg-white/10 text-muted italic" 
+                 : "bg-primary text-black shadow-2xl shadow-primary/20 hover:scale-[1.03]"
+             }`}
+           >
+             {isPlaying ? "WAITING..." : "START BET"}
            </Button>
         </aside>
 
-        {/* Game Canvas / Area */}
-        <main className="flex-1 relative bg-black/20 flex items-center justify-center p-12 overflow-hidden">
-           {/* Placeholder for Game Logic/Canvas */}
-           <div className="w-full max-w-2xl aspect-video rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-6 group">
+        {/* Game Canvas */}
+        <main className="flex-1 relative bg-black/30 flex items-center justify-center p-12">
+           <div className="w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed border-white/5 bg-black/10 flex flex-col items-center justify-center gap-8 group relative overflow-hidden">
+              <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
               <div className="relative">
-                 <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
-                 <Play size={80} className="text-primary relative z-10 group-hover:scale-110 transition-transform duration-500" fill="currentColor" />
+                 <div className={`absolute inset-0 bg-primary/30 blur-[80px] rounded-full scale-150 transition-all duration-1000 ${isPlaying ? "opacity-100 scale-[2] animate-pulse" : "opacity-0"}`} />
+                 <Play size={100} className={`relative z-10 transition-all duration-700 ${isPlaying ? "text-primary scale-110 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "text-muted opacity-20"}`} fill="currentColor" />
               </div>
-              <div className="text-center space-y-2 relative z-10">
-                 <h2 className="text-3xl font-black italic">READY TO PLAY?</h2>
-                 <p className="text-muted font-medium">Click BET to start your {gameName} journey.</p>
+              <div className="text-center space-y-3 relative z-10">
+                 <h2 className={`text-4xl font-black tracking-tighter italic transition-all duration-700 ${isPlaying ? "text-white" : "text-muted"}`}>
+                   {isPlaying ? "BETTING ACTIVE" : "PLACE YOUR BET"}
+                 </h2>
+                 <p className="text-muted font-bold tracking-widest uppercase text-[10px]">
+                   Network Status: <span className="text-success">Optimal</span>
+                 </p>
               </div>
            </div>
 
-           {/* Floating Buttons */}
-           <div className="absolute top-6 right-6 flex gap-3">
-              <Button isIconOnly variant="ghost" className="bg-black/40 backdrop-blur-md border-white/5 text-muted hover:text-white border-none shadow-none rounded-xl">
-                 <RotateCcw size={18} />
+           {/* Quick Actions */}
+           <div className="absolute top-8 right-8 flex gap-3">
+              <Button isIconOnly className="bg-black/60 backdrop-blur-xl border border-white/5 text-muted hover:text-white transition-colors rounded-2xl shadow-2xl h-12 w-12">
+                 <RotateCcw size={20} />
               </Button>
-              <Button isIconOnly variant="ghost" className="bg-black/40 backdrop-blur-md border-white/5 text-muted hover:text-white border-none shadow-none rounded-xl">
-                 <Settings2 size={18} />
+              <Button isIconOnly className="bg-black/60 backdrop-blur-xl border border-white/5 text-muted hover:text-white transition-colors rounded-2xl shadow-2xl h-12 w-12">
+                 <Settings2 size={20} />
               </Button>
            </div>
         </main>
-
-        {/* Game History Sidebar */}
-        <aside className="w-64 border-l border-white/5 bg-secondary/5 hidden xl:flex flex-col">
-           <div className="p-4 border-b border-white/5 flex items-center gap-2">
-              <History size={16} className="text-muted" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted">History</span>
-           </div>
-           <ScrollShadow className="flex-1 p-4 space-y-3">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 opacity-50">
-                   <span className="text-xs font-bold">{842 - i}x</span>
-                   <span className={`text-[10px] font-black ${i % 3 === 0 ? "text-primary" : "text-danger-soft"}`}>
-                     {i % 3 === 0 ? "WIN" : "LOSS"}
-                   </span>
-                </div>
-              ))}
-           </ScrollShadow>
-        </aside>
       </div>
     </div>
   );

@@ -18,8 +18,17 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEconomy } from "@/hooks/use-economy";
 
 export function Header() {
+  const { balance, claimInitialBonus } = useEconomy();
+
+  const formatBalance = (val: number) => {
+    if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(2) + "B";
+    if (val >= 1_000_000) return (val / 1_000_000).toFixed(2) + "M";
+    return val.toLocaleString();
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[72px] bg-secondary/30 backdrop-blur-2xl border-b border-white/5 z-50 px-6">
       <div className="flex items-center justify-between w-full h-full max-w-[1800px] mx-auto">
@@ -54,7 +63,7 @@ export function Header() {
                    <span className="text-primary font-black text-xs">D</span>
                 </div>
                 <div className="flex flex-col">
-                   <span className="text-xs font-black text-white leading-none">0.00</span>
+                   <span className="text-xs font-black text-white leading-none">{formatBalance(balance)}</span>
                    <span className="text-[8px] font-bold text-muted uppercase tracking-tighter">Balance</span>
                 </div>
              </div>
@@ -65,13 +74,17 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-2 border-l border-white/10 pl-4">
-            <Button className="h-11 bg-white/5 hover:bg-white/10 text-white font-bold px-6 rounded-xl border border-white/5 shadow-none">
+            <Button className="h-11 bg-white/5 hover:bg-white/10 text-white font-bold px-6 rounded-xl border border-white/5 shadow-none text-xs">
               LOGIN
             </Button>
-            <Button className="h-11 bg-primary text-black font-black px-6 rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
+            <Button 
+              onClick={claimInitialBonus}
+              className="h-11 bg-primary text-black font-black px-6 rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95 text-xs"
+            >
               SIGN UP
             </Button>
           </div>
+
           
           <Button isIconOnly variant="ghost" className="md:hidden border-none text-muted">
              <Menu size={24} />
