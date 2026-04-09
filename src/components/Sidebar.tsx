@@ -11,15 +11,13 @@ import {
   Home, 
   Gift, 
   Trophy, 
-  Gamepad2,
   LayoutGrid,
   Zap,
   Dice5,
-  Coins,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  TrendingUp
+  Gamepad2
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,12 +27,14 @@ const games = [
   { id: "mines", name: "Mines", icon: ShieldCheck },
   { id: "plinko", name: "Plinko", icon: LayoutGrid },
   { id: "dice", name: "Dice", icon: Dice5 },
-  { id: "blackjack", name: "Blackjack", icon: Coins },
 ];
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const pathname = usePathname();
+
+  // Hide sidebar entirely on the landing page
+  if (pathname === "/") return null;
 
   const navItems = [
     { name: "Home", icon: Home, href: "/" },
@@ -45,7 +45,7 @@ export function Sidebar() {
   return (
     <aside 
       className={`relative h-full flex flex-col transition-all duration-500 border-r border-white/5 bg-secondary/30 backdrop-blur-xl ${
-        isCollapsed ? "w-[80px]" : "w-[240px]"
+        isCollapsed ? "w-[72px]" : "w-[220px]"
       }`}
     >
       {/* Collapse Toggle */}
@@ -60,8 +60,8 @@ export function Sidebar() {
       </Button>
 
       {/* Main Nav */}
-      <ScrollShadow className="flex-1 px-4 py-8 space-y-8">
-        <div className="flex flex-col gap-3">
+      <ScrollShadow className="flex-1 px-3 py-8 space-y-8">
+        <div className="flex flex-col gap-2">
           {navItems.map((item) => (
             <Link key={item.name} href={item.href}>
               <Tooltip isDisabled={!isCollapsed}>
@@ -69,16 +69,16 @@ export function Sidebar() {
                   <Button
                     fullWidth
                     variant={pathname === item.href ? "secondary" : "ghost"}
-                    className={`h-14 justify-start px-4 transition-all duration-300 rounded-2xl group border border-transparent shadow-sm ${
+                    className={`h-12 justify-start px-3 transition-all duration-300 rounded-2xl group border border-transparent ${
                       pathname === item.href 
-                        ? "bg-primary/10 text-primary border-primary/20 shadow-primary/5" 
-                        : "bg-black/20 text-muted hover:bg-white/5 hover:text-white hover:border-white/5 hover:shadow-md"
+                        ? "bg-primary/10 text-primary border-primary/20" 
+                        : "bg-black/20 text-muted hover:bg-white/5 hover:text-white hover:border-white/5"
                     }`}
                   >
-                    <item.icon size={22} className={`${pathname === item.href ? "text-primary scale-110" : "group-hover:text-primary transition-all duration-300 group-hover:scale-110"}`} />
-                    {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{item.name}</span>}
+                    <item.icon size={20} className={`${pathname === item.href ? "text-primary" : "group-hover:text-primary transition-all duration-300"}`} />
+                    {!isCollapsed && <span className="ml-3 font-bold tracking-tight text-sm">{item.name}</span>}
                     {pathname === item.href && !isCollapsed && (
-                      <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     )}
                   </Button>
                 </Tooltip.Trigger>
@@ -92,8 +92,8 @@ export function Sidebar() {
 
         <Separator className="bg-white/5" />
 
-        <div className="flex flex-col gap-3">
-          {!isCollapsed && <p className="text-[10px] font-black text-muted uppercase tracking-[0.2em] px-2 mb-2">Games</p>}
+        <div className="flex flex-col gap-2">
+          {!isCollapsed && <p className="text-[9px] font-black text-muted uppercase tracking-[0.25em] px-2 mb-1">Games</p>}
           {games.map((game) => (
             <Link key={game.id} href={`/games/${game.id}`}>
               <Tooltip isDisabled={!isCollapsed}>
@@ -101,16 +101,16 @@ export function Sidebar() {
                   <Button
                     fullWidth
                     variant={pathname.includes(game.id) ? "secondary" : "ghost"}
-                    className={`h-14 justify-start px-4 transition-all duration-300 rounded-2xl group border border-transparent shadow-sm ${
+                    className={`h-12 justify-start px-3 transition-all duration-300 rounded-2xl group border border-transparent ${
                       pathname.includes(game.id) 
-                        ? "bg-primary/10 text-primary border-primary/20 shadow-primary/5" 
-                        : "bg-black/20 text-muted hover:bg-white/5 hover:text-white hover:border-white/5 hover:shadow-md"
+                        ? "bg-primary/10 text-primary border-primary/20" 
+                        : "bg-black/20 text-muted hover:bg-white/5 hover:text-white hover:border-white/5"
                     }`}
                   >
-                    <game.icon size={22} className={`${pathname.includes(game.id) ? "text-primary scale-110" : "group-hover:text-primary transition-all group-hover:scale-110"}`} />
-                    {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{game.name}</span>}
+                    <game.icon size={20} className={`${pathname.includes(game.id) ? "text-primary" : "group-hover:text-primary transition-all"}`} />
+                    {!isCollapsed && <span className="ml-3 font-bold tracking-tight text-sm">{game.name}</span>}
                     {pathname.includes(game.id) && !isCollapsed && (
-                      <div className="ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     )}
                   </Button>
                 </Tooltip.Trigger>
@@ -123,13 +123,13 @@ export function Sidebar() {
         </div>
       </ScrollShadow>
 
-      {/* Footer / Stats Block In Sidebar */}
-      <div className="p-4 border-t border-white/5 bg-black/40">
+      {/* Footer */}
+      <div className="p-3 border-t border-white/5 bg-black/40">
          {!isCollapsed ? (
-           <div className="bg-secondary/20 p-4 rounded-3xl space-y-3 shadow-inner">
+           <div className="bg-secondary/20 p-3 rounded-2xl">
               <div className="flex items-center justify-between">
-                 <span className="text-[10px] text-muted font-black tracking-widest uppercase">System</span>
-                 <span className="text-xs font-black text-success flex items-center gap-1">
+                 <span className="text-[9px] text-muted font-black tracking-widest uppercase">System</span>
+                 <span className="text-[10px] font-black text-success flex items-center gap-1">
                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Online
                  </span>
               </div>

@@ -1,19 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/Navbar";
-import { ChatSidebar } from "@/components/ChatSidebar";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "DonutBoost | Play & Win",
-  description: "The premium Minecraft-themed gambling platform.",
+  description: "The premium Donut SMP gambling platform.",
 };
 
 export default function RootLayout({
@@ -26,11 +19,13 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
+        {/* Space Grotesk — strong, techy, premium */}
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
       </head>
-      <body className="antialiased min-h-screen bg-background overflow-hidden">
+      <body className="antialiased min-h-screen bg-background overflow-hidden" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
         <Providers>
           <div className="flex h-screen w-full overflow-hidden">
+            <Sidebar />
             <div className="flex flex-col flex-1 min-w-0">
               <Navbar />
               <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
@@ -43,5 +38,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-

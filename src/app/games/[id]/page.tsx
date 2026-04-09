@@ -450,7 +450,7 @@ export default function GamePage() {
                               transform: `translate(${(drop.path.reduce((a,b)=>a+b,0) - (PLINKO_ROWS)/2) * 24}px, 400px)`,
                            }}
                          >
-                            <img src="/image.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(59,130,246,0.6)] animate-spin" />
+                            <img src="/donutsmp.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_10px_rgba(59,130,246,0.6)] animate-spin" />
                          </div>
                       );
                    })}
