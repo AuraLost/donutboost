@@ -64,22 +64,27 @@ export function Sidebar() {
         <div className="space-y-2">
           {navItems.map((item) => (
             <Link key={item.name} href={item.href}>
-              <Tooltip content={item.name} placement="right" isDisabled={!isCollapsed}>
-                <Button
-                  fullWidth
-                  variant={pathname === item.href ? "secondary" : "ghost"}
-                  className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
-                    pathname === item.href 
-                      ? "bg-primary/20 text-primary border-none" 
-                      : "text-muted hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <item.icon size={22} className={`${pathname === item.href ? "text-primary" : "group-hover:text-primary transition-colors duration-300"}`} />
-                  {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{item.name}</span>}
-                  {pathname === item.href && !isCollapsed && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                  )}
-                </Button>
+              <Tooltip isDisabled={!isCollapsed}>
+                <Tooltip.Trigger>
+                  <Button
+                    fullWidth
+                    variant={pathname === item.href ? "secondary" : "ghost"}
+                    className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
+                      pathname === item.href 
+                        ? "bg-primary/20 text-primary border-none" 
+                        : "text-muted hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <item.icon size={22} className={`${pathname === item.href ? "text-primary" : "group-hover:text-primary transition-colors duration-300"}`} />
+                    {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{item.name}</span>}
+                    {pathname === item.href && !isCollapsed && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                    )}
+                  </Button>
+                </Tooltip.Trigger>
+                <Tooltip.Content placement="right">
+                  {item.name}
+                </Tooltip.Content>
               </Tooltip>
             </Link>
           ))}
@@ -91,22 +96,27 @@ export function Sidebar() {
           {!isCollapsed && <p className="text-[10px] font-black text-muted uppercase tracking-widest px-4 mb-4">GAMES</p>}
           {games.map((game) => (
             <Link key={game.id} href={`/games/${game.id}`}>
-              <Tooltip content={game.name} placement="right" isDisabled={!isCollapsed}>
-                <Button
-                  fullWidth
-                  variant={pathname.includes(game.id) ? "secondary" : "ghost"}
-                  className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
-                    pathname.includes(game.id) 
-                      ? "bg-primary/10 text-primary border-none" 
-                      : "text-muted hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <game.icon size={22} className={`${pathname.includes(game.id) ? "text-primary" : "group-hover:text-primary transition-colors"}`} />
-                  {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{game.name}</span>}
-                  {pathname.includes(game.id) && !isCollapsed && (
-                    <div className="ml-auto w-1 h-4 bg-primary rounded-full" />
-                  )}
-                </Button>
+              <Tooltip isDisabled={!isCollapsed}>
+                <Tooltip.Trigger>
+                  <Button
+                    fullWidth
+                    variant={pathname.includes(game.id) ? "secondary" : "ghost"}
+                    className={`h-12 justify-start px-3 transition-all duration-300 rounded-xl group ${
+                      pathname.includes(game.id) 
+                        ? "bg-primary/10 text-primary border-none" 
+                        : "text-muted hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    <game.icon size={22} className={`${pathname.includes(game.id) ? "text-primary" : "group-hover:text-primary transition-colors"}`} />
+                    {!isCollapsed && <span className="ml-4 font-bold tracking-tight">{game.name}</span>}
+                    {pathname.includes(game.id) && !isCollapsed && (
+                      <div className="ml-auto w-1 h-4 bg-primary rounded-full" />
+                    )}
+                  </Button>
+                </Tooltip.Trigger>
+                <Tooltip.Content placement="right">
+                  {game.name}
+                </Tooltip.Content>
               </Tooltip>
             </Link>
           ))}

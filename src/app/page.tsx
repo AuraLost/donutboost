@@ -5,8 +5,7 @@ import {
   Card, 
   Button, 
   Chip,
-  Tabs,
-  Tab
+  Tabs
 } from "@heroui/react";
 import { 
   Play, 
@@ -99,10 +98,23 @@ export default function Home() {
             <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(59,130,246,0.6)]" />
             <h2 className="text-3xl font-black tracking-tight italic">LIVE ECONOMY</h2>
           </div>
-          <Tabs aria-label="Game Filter" variant="underlined" classNames={{ cursor: "bg-primary", tab: "font-black uppercase tracking-widest text-[10px] h-12" }}>
-            <Tab key="all" title="EVERYTHING" />
-            <Tab key="pvp" title="PVP BETS" />
-            <Tab key="market" title="MARKET" />
+          <Tabs aria-label="Game Filter" variant="primary" className="border-b border-white/5 pb-4">
+            <Tabs.ListContainer>
+              <Tabs.List>
+                <Tabs.Tab id="all">
+                  EVERYTHING
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="pvp">
+                  PVP BETS
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="market">
+                  MARKET
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
           </Tabs>
         </div>
 

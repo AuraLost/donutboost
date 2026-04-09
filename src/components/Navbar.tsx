@@ -20,7 +20,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEconomy } from "@/hooks/use-economy";
 
-export function Header() {
+export function Navbar() {
   const { balance, claimInitialBonus } = useEconomy();
 
   const formatBalance = (val: number) => {

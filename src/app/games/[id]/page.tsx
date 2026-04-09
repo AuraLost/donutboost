@@ -5,7 +5,7 @@ import {
   Card, 
   Button, 
   Input, 
-  Tabs, 
+  Tabs,
   Separator,
   ScrollShadow
 } from "@heroui/react";
@@ -109,9 +109,19 @@ export default function GamePage() {
 
            <div className="space-y-4">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Mode Preference</label>
-              <Tabs fullWidth variant="solid" classNames={{ cursor: "bg-primary", tab: "font-black text-[10px] h-11" }}>
-                 <Tab key="manual" title="MANUAL" />
-                 <Tab key="auto" title="AUTOMATED" />
+              <Tabs variant="primary" className="w-full">
+                 <Tabs.ListContainer>
+                   <Tabs.List className="w-full flex">
+                     <Tabs.Tab id="manual" className="flex-1">
+                       MANUAL
+                       <Tabs.Indicator />
+                     </Tabs.Tab>
+                     <Tabs.Tab id="auto" className="flex-1">
+                       AUTOMATED
+                       <Tabs.Indicator />
+                     </Tabs.Tab>
+                   </Tabs.List>
+                 </Tabs.ListContainer>
               </Tabs>
            </div>
 
