@@ -262,13 +262,13 @@ export default function GamePage() {
         <aside className="w-[340px] border-r border-white/5 bg-secondary/10 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto">
            <div className="space-y-4">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Bet Amount (Donuts)</label>
-              <div className="relative">
+               <div className="relative">
                  <Input 
                    type="number" 
                    value={betAmount.toString()} 
                    onChange={(e) => setBetAmount(Number(e.target.value))}
                    className="w-full bg-black/40 h-14"
-                   isDisabled={isPlaying}
+                   disabled={isPlaying}
                  />
                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1.5 z-10">
                     <Button 
@@ -288,7 +288,7 @@ export default function GamePage() {
                  </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                 <Button isDisabled={isPlaying} onClick={() => setBetAmount(1000000)} size="sm" variant="ghost" className="bg-white/5 border border-white/5 text-[10px] font-black text-white transition-colors hover:bg-white/10">MIN (1M)</Button>
+                 <Button isDisabled={isPlaying} onClick={() => setBetAmount(1000)} size="sm" variant="ghost" className="bg-white/5 border border-white/5 text-[10px] font-black text-white transition-colors hover:bg-white/10">MIN (1K)</Button>
                  <Button isDisabled={isPlaying} onClick={() => setBetAmount(1000000000)} size="sm" variant="ghost" className="bg-white/5 border border-white/5 text-[10px] font-black text-white transition-colors hover:bg-white/10">MAX (1B)</Button>
               </div>
            </div>

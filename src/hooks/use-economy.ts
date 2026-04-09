@@ -54,7 +54,7 @@ export const useEconomy = create<EconomyState>()(
       },
 
       bet: (amount: number) => {
-        if (get().balance >= amount && amount > 0) {
+        if (get().balance >= amount && amount >= 1000) {
           set((state) => ({ balance: state.balance - amount }));
           return true;
         }
