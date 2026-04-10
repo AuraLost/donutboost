@@ -3,7 +3,7 @@
 import React from "react";
 import { Button, Tooltip, Separator, ScrollShadow } from "@heroui/react";
 import { 
-  Home, Gift, Trophy,
+  Home, Gift, Trophy, LayoutDashboard,
   ChevronLeft, ChevronRight,
   TrendingUp, Bomb, Triangle, Dices, Coins, Bird, RotateCcw,
   Wallet
@@ -23,6 +23,7 @@ const games = [
 ];
 
 const navItems = [
+  { name: "Dashboard", icon: LayoutDashboard, href: "/home" },
   { name: "Home",    icon: Home,   href: "/home" },
   { name: "Daily",   icon: Gift,   href: "/daily" },
   { name: "Live",    icon: Trophy, href: "/livebets" },
