@@ -17,9 +17,11 @@ let client = null;
 let reconnectDelay = 2_000;
 let reconnectTimer = null;
 let antiAfkTimer = null;
+let connectionWatchdogTimer = null;
 let isStopping = false;
 let tickCounter = 0;
 let currentPosition = { x: 0, y: 0, z: 0 };
+let lastPacketAt = Date.now();
 
 const senderRateLimit = new Map();
 
@@ -157,34 +159,58 @@ function startAntiAfk() {
   antiAfkTimer = setInterval(() => {
     if (!client) return;
     tickCounter += 1;
+    const moveRight = tickCounter % 2 === 0;
+    const wiggle = moveRight ? 0.16 : -0.16;
     try {
       client.queue("player_auth_input", {
         pitch: 0,
         yaw: 0,
         position: currentPosition,
-        move_vector: { x: 0, z: 0 },
+        move_vector: { x: wiggle, z: 0 },
         head_yaw: 0,
-        input_data: {},
+        input_data: { right: moveRight, left: !moveRight },
         input_mode: "mouse",
         play_mode: "normal",
         interaction_model: "crosshair",
         interact_rotation: { x: 0, y: 0 },
         tick: tickCounter,
-        delta: { x: 0, y: 0, z: 0 },
-        analogue_move_vector: { x: 0, z: 0 },
+        delta: { x: wiggle * 0.01, y: 0, z: 0 },
+        analogue_move_vector: { x: wiggle, z: 0 },
         camera_orientation: { x: 0, y: 0, z: 1 },
-        raw_move_vector: { x: 0, z: 0 },
+        raw_move_vector: { x: wiggle, z: 0 },
       });
     } catch (error) {
       console.error("[bot] anti-afk send error:", error);
     }
-  }, 4_500);
+  }, 2_500);
 }
 
 function stopAntiAfk() {
   if (!antiAfkTimer) return;
   clearInterval(antiAfkTimer);
   antiAfkTimer = null;
+}
+
+function startConnectionWatchdog() {
+  stopConnectionWatchdog();
+  connectionWatchdogTimer = setInterval(() => {
+    if (!client) return;
+    const idleMs = Date.now() - lastPacketAt;
+    if (idleMs > 25_000) {
+      console.warn(`[bot] packet watchdog triggered (${idleMs}ms idle), reconnecting`);
+      try {
+        client.close();
+      } catch {
+        // no-op
+      }
+    }
+  }, 5_000);
+}
+
+function stopConnectionWatchdog() {
+  if (!connectionWatchdogTimer) return;
+  clearInterval(connectionWatchdogTimer);
+  connectionWatchdogTimer = null;
 }
 
 function scheduleReconnect(reason) {
@@ -199,14 +225,20 @@ function scheduleReconnect(reason) {
 }
 
 function attachHandlers(bot) {
+  bot.on("packet", () => {
+    lastPacketAt = Date.now();
+  });
+
   bot.on("join", () => {
     reconnectDelay = 2_000;
+    lastPacketAt = Date.now();
     console.log("[bot] joined server");
   });
 
   bot.on("spawn", () => {
     console.log("[bot] spawned, anti-afk loop active");
     startAntiAfk();
+    startConnectionWatchdog();
   });
 
   bot.on("move_player", (packet) => {
@@ -250,18 +282,21 @@ function attachHandlers(bot) {
 
   bot.on("kick", (reason) => {
     stopAntiAfk();
+    stopConnectionWatchdog();
     console.warn("[bot] kicked:", reason);
     scheduleReconnect("kick");
   });
 
   bot.on("close", () => {
     stopAntiAfk();
+    stopConnectionWatchdog();
     console.warn("[bot] connection closed");
     scheduleReconnect("close");
   });
 
   bot.on("error", (error) => {
     stopAntiAfk();
+    stopConnectionWatchdog();
     console.error("[bot] error:", error);
     scheduleReconnect("error");
   });
@@ -287,6 +322,7 @@ function connect() {
 process.on("SIGINT", () => {
   isStopping = true;
   stopAntiAfk();
+  stopConnectionWatchdog();
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (client) {
     try {
@@ -300,4 +336,3 @@ process.on("SIGINT", () => {
 });
 
 connect();
-
