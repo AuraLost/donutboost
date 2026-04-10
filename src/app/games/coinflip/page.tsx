@@ -3,9 +3,9 @@ import React, { useState } from "react";
 import { Button } from "@heroui/react";
 import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
+import { getRigIntensity, scaleDownByRig } from "@/lib/rigging";
 
 type Difficulty = "noob" | "pro" | "expert";
-const HARD_BALANCE = 8_900_000;
 
 const parseBet = (s: string): number => {
   const c = s.trim().toLowerCase().replace(/,/g, "");
@@ -36,17 +36,20 @@ export default function CoinFlipPage() {
   const [popup, setPopup] = useState<{ won: boolean; amount: number; message: string } | null>(null);
 
   const betAmount = parseBet(betInput);
-  const hardMode = balance >= HARD_BALANCE;
-  const payout = Math.floor(betAmount * DIFFICULTIES[difficulty].multiplier * (hardMode ? 0.5 : 1));
+  const rigIntensity = getRigIntensity(balance);
+  const payout = Math.floor(betAmount * scaleDownByRig(DIFFICULTIES[difficulty].multiplier, rigIntensity, 0.55));
 
   const flip = () => {
     if (!chosen || isFlipping || betAmount < 1000) return;
-    if (!bet(betAmount)) { setOutcome({ won: false, amount: 0, message: "Insufficient balance!" }); return; }
+    if (!bet(betAmount)) {
+      setOutcome({ won: false, amount: 0, message: "Insufficient balance!" });
+      return;
+    }
 
     setIsFlipping(true);
     setResult(null);
     setOutcome(null);
-    const effectiveWinChance = DIFFICULTIES[difficulty].winChance * (hardMode ? 0.45 : 1);
+    const effectiveWinChance = scaleDownByRig(DIFFICULTIES[difficulty].winChance, rigIntensity, 0.55);
     const landed: "heads" | "tails" = Math.random() < effectiveWinChance
       ? chosen
       : (chosen === "heads" ? "tails" : "heads");
@@ -82,7 +85,7 @@ export default function CoinFlipPage() {
           </div>
         </div>
       )}
-      {/* Sidebar Panel */}
+
       <aside className="w-full lg:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/40 p-4 md:p-6 flex flex-col gap-5 overflow-y-auto">
         <div>
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-2 block">Bet Amount</label>
@@ -98,7 +101,7 @@ export default function CoinFlipPage() {
             ))}
           </div>
           <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-            <button onClick={() => setBetInput(String(Math.max(1000, Math.floor(parseBet(betInput) / 2))))} className="text-[10px] font-black py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 transition-colors border border-white/5">½x</button>
+            <button onClick={() => setBetInput(String(Math.max(1000, Math.floor(parseBet(betInput) / 2))))} className="text-[10px] font-black py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 transition-colors border border-white/5">1/2x</button>
             <button onClick={() => setBetInput(String(parseBet(betInput) * 2))} className="text-[10px] font-black py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 transition-colors border border-white/5">2x</button>
           </div>
         </div>
@@ -108,7 +111,7 @@ export default function CoinFlipPage() {
           <div className="flex flex-col gap-1.5">
             {(["noob", "pro", "expert"] as Difficulty[]).map(d => (
               <button key={d} onClick={() => setDifficulty(d)} className={`h-10 rounded-xl border font-black text-sm transition-all ${difficulty === d ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/10"}`}>
-                {DIFFICULTIES[d].label} — {Math.round(DIFFICULTIES[d].winChance * 100)}%
+                {DIFFICULTIES[d].label} - {Math.round(DIFFICULTIES[d].winChance * 100)}%
               </button>
             ))}
           </div>
@@ -120,11 +123,9 @@ export default function CoinFlipPage() {
             {(["heads", "tails"] as const).map(side => (
               <button key={side} onClick={() => setChosen(side)} className={`h-14 rounded-xl border font-black text-sm capitalize transition-all ${chosen === side ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/5 text-white/40 hover:text-white"}`}>
                 <span className="inline-flex items-center gap-2">
-                  <img
-                    src={side === "heads" ? "https://img.icons8.com/fluency/48/circled-h.png" : "https://img.icons8.com/fluency/48/circled-t.png"}
-                    alt={side}
-                    className="w-5 h-5"
-                  />
+                  <span className="w-5 h-5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[11px] font-black flex items-center justify-center">
+                    {side === "heads" ? "H" : "T"}
+                  </span>
                   {side}
                 </span>
               </button>
@@ -148,9 +149,7 @@ export default function CoinFlipPage() {
         </Button>
       </aside>
 
-      {/* Game Canvas */}
       <main className="flex-1 flex flex-col items-center justify-center gap-8 bg-black/20 p-4 md:p-8">
-        {/* Coin */}
         <div className="relative" style={{ perspective: "600px" }}>
           <div
             className={`w-48 h-48 rounded-full flex items-center justify-center text-8xl shadow-2xl ${animClass}`}
@@ -162,20 +161,19 @@ export default function CoinFlipPage() {
             }}
           >
             {result === null && !isFlipping ? (
-              <img src="https://img.icons8.com/fluency/96/circled-h.png" alt="coin" className="w-24 h-24" />
+              <span className="w-24 h-24 rounded-full bg-white/90 text-blue-700 text-6xl font-black flex items-center justify-center shadow-inner">H</span>
             ) : result === "heads" ? (
-              <img src="https://img.icons8.com/fluency/96/circled-h.png" alt="heads" className="w-28 h-28 object-contain" />
+              <span className="w-28 h-28 rounded-full bg-white/90 text-blue-700 text-7xl font-black flex items-center justify-center shadow-inner">H</span>
             ) : (
-              <img src="https://img.icons8.com/fluency/96/circled-t.png" alt="tails" className="w-28 h-28 object-contain" />
+              <span className="w-28 h-28 rounded-full bg-white/90 text-blue-700 text-7xl font-black flex items-center justify-center shadow-inner">T</span>
             )}
           </div>
         </div>
 
-        {/* Result */}
         {outcome && (
           <div className={`text-center animate-in zoom-in-90 duration-300 p-8 rounded-3xl border ${outcome.won ? "bg-success/10 border-success/20" : "bg-danger/10 border-danger/20"}`}>
             <p className={`text-4xl font-black italic ${outcome.won ? "text-success" : "text-danger"}`}>
-              {outcome.won ? "🎉 WIN!" : "💀 LOSS"}
+              {outcome.won ? "WIN!" : "LOSS"}
             </p>
             <p className="text-white/60 font-bold mt-2 text-sm">{outcome.message}</p>
             {outcome.won && (
@@ -187,7 +185,7 @@ export default function CoinFlipPage() {
         {!outcome && !isFlipping && (
           <div className="text-center">
             <p className="text-white/20 font-bold text-sm uppercase tracking-widest">
-              {chosen ? `You picked ${chosen} — flip to play!` : "Pick heads or tails to begin"}
+              {chosen ? `You picked ${chosen} - flip to play!` : "Pick heads or tails to begin"}
             </p>
           </div>
         )}

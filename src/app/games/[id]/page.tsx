@@ -5,9 +5,9 @@ import { Button, Slider } from "@heroui/react";
 import { Play, Gem, Bomb, Zap, Dice5, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
+import { getRigIntensity, scaleDownByRig } from "@/lib/rigging";
 
 type Difficulty = "noob" | "pro" | "expert";
-const HARD_BALANCE = 8_900_000;
 
 // ===== Bet parsing =====
 const parseBet = (s: string): number => {
@@ -41,11 +41,13 @@ const PEG_SPACING = 38; // px between pegs
 const ROW_HEIGHT = 44;  // px per row
 
 // Build plinko multiplier table based on difficulty
-const getPlinkoMults = (diff: Difficulty, hardMode: boolean): number[] => {
-  if (hardMode) return [0, 0.1, 0.2, 0.35, 0.45, 0.55, 0.45, 0.35, 0.2, 0.1, 0];
-  if (diff === "noob") return [0.25, 0.4, 0.6, 0.8, 1.05, 1.2, 1.05, 0.8, 0.6, 0.4, 0.25];
-  if (diff === "pro") return [0.15, 0.3, 0.45, 0.65, 0.9, 1.05, 0.9, 0.65, 0.45, 0.3, 0.15];
-  return [0.1, 0.2, 0.35, 0.5, 0.75, 0.95, 0.75, 0.5, 0.35, 0.2, 0.1];
+const getPlinkoMults = (diff: Difficulty, rigIntensity: number): number[] => {
+  const noob = [1.6, 1.25, 1.05, 0.85, 0.65, 0.45, 0.65, 0.85, 1.05, 1.25, 1.6];
+  const pro = [2.4, 1.9, 1.5, 1.1, 0.8, 0.35, 0.8, 1.1, 1.5, 1.9, 2.4];
+  const expert = [4.5, 3.3, 2.4, 1.5, 0.9, 0, 0.9, 1.5, 2.4, 3.3, 4.5];
+  const base = diff === "noob" ? noob : diff === "pro" ? pro : expert;
+  const diffScale = diff === "noob" ? 1 : diff === "pro" ? 1.25 : 1.6;
+  return base.map((mult) => Number(scaleDownByRig(mult * diffScale, rigIntensity, 0.55).toFixed(2)));
 };
 
 export default function GamePage() {
@@ -72,8 +74,8 @@ export default function GamePage() {
   const [grid, setGrid] = useState<boolean[]>(Array(25).fill(false));
   const [revealed, setRevealed] = useState<boolean[]>(Array(25).fill(false));
   const [minesCashout, setMinesCashout] = useState(1.00);
-  const hardMode = balance >= HARD_BALANCE;
-  const mineCount = (difficulty === "noob" ? 8 : difficulty === "pro" ? 11 : 14) + (hardMode ? 4 : 0);
+  const rigIntensity = getRigIntensity(balance);
+  const mineCount = Math.min(24, Math.floor((difficulty === "noob" ? 8 : difficulty === "pro" ? 11 : 14) + rigIntensity * 5));
 
   // ===== DICE =====
   const [winChance, setWinChance] = useState(50);
@@ -83,7 +85,7 @@ export default function GamePage() {
   // ===== PLINKO =====
   const [plinkoBall, setPlinkoBall] = useState<{ row: number; x: number; path: number[]; tilt: number } | null>(null);
   const [plinkoBallActive, setPlinkoBallActive] = useState(false);
-  const plinkoMults = getPlinkoMults(difficulty, hardMode);
+  const plinkoMults = getPlinkoMults(difficulty, rigIntensity);
 
   useEffect(() => () => { if (crashIntervalRef.current) clearInterval(crashIntervalRef.current); }, []);
 
@@ -93,7 +95,7 @@ export default function GamePage() {
     const target = Math.max(1.01, parseFloat((100 / (100 - h)).toFixed(2)));
     // Expert = lower average target
     const adjustedTargetBase = difficulty === "noob" ? target * 0.95 : difficulty === "expert" ? target * 0.45 : target * 0.7;
-    const adjustedTarget = hardMode ? adjustedTargetBase * 0.45 : adjustedTargetBase;
+    const adjustedTarget = scaleDownByRig(adjustedTargetBase, rigIntensity, 0.55);
     setCrashMult(1.00); setHasCrashed(false); setIsPlaying(true);
     let current = 1.00;
     crashIntervalRef.current = setInterval(() => {
@@ -136,7 +138,7 @@ export default function GamePage() {
       setRevealed(Array(25).fill(true));
     } else {
       const safe = newRev.filter(Boolean).length;
-      const baseStep = hardMode ? 0.045 : 0.07;
+      const baseStep = scaleDownByRig(0.07, rigIntensity, 0.35);
       const mult = parseFloat((0.25 + safe * baseStep).toFixed(2));
       setMinesCashout(mult);
     }
@@ -154,7 +156,7 @@ export default function GamePage() {
     setIsPlaying(true); setIsRolling(true); setDiceRoll(null);
     // Noob: shifted win chance; Expert: harder
     const baseChance = difficulty === "noob" ? winChance * 0.95 : difficulty === "expert" ? winChance * 0.65 : winChance * 0.8;
-    const effectiveChance = Math.max(1, Math.min(95, hardMode ? baseChance * 0.55 : baseChance));
+    const effectiveChance = Math.max(1, Math.min(95, scaleDownByRig(baseChance, rigIntensity, 0.45)));
     let ticks = 0;
     const iv = setInterval(() => {
       setDiceRoll(Math.floor(Math.random() * 100) + 1);
@@ -164,7 +166,7 @@ export default function GamePage() {
         setDiceRoll(roll); setIsRolling(false); setIsPlaying(false);
         if (roll <= effectiveChance) {
           const raw = betAmount * (99 / winChance);
-          const payout = Math.floor(raw * (hardMode ? 0.12 : 0.25));
+          const payout = Math.floor(raw * scaleDownByRig(0.25, rigIntensity, 0.52));
           win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`); useEconomy.getState().recordWin(betAmount, payout);
         } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); useEconomy.getState().recordLoss(betAmount); }
       }
@@ -181,7 +183,11 @@ export default function GamePage() {
     const path: number[] = [];
     let finalPos = 0;
     for (let r = 0; r < PLINKO_ROWS; r++) {
-      const dir = Math.random() > 0.5 ? 1 : 0;
+      const rowsLeft = PLINKO_ROWS - r;
+      const center = PLINKO_ROWS / 2;
+      const driftTowardCenter = (center - finalPos) / Math.max(1, rowsLeft);
+      const rightChance = Math.max(0.1, Math.min(0.9, 0.5 + driftTowardCenter * rigIntensity * 0.28));
+      const dir = Math.random() < rightChance ? 1 : 0;
       path.push(dir);
       finalPos += dir;
     }
@@ -204,12 +210,12 @@ export default function GamePage() {
         clearInterval(stepIv);
         const payout = Math.floor(betAmount * mult);
         win(payout);
-        if (mult > 1) useEconomy.getState().recordWin(betAmount, payout);
+        if (mult >= 1) useEconomy.getState().recordWin(betAmount, payout);
         else useEconomy.getState().recordLoss(betAmount);
         setTimeout(() => {
           setPlinkoBall(null);
           setPlinkoBallActive(false);
-          showPopup(mult > 1, payout, `Landed on ${mult}x → ${formatMoney(payout)}`);
+          showPopup(mult >= 1, payout, `Landed on ${mult}x -> ${formatMoney(payout)}`);
         }, 400);
       }
     }, 120);
@@ -458,3 +464,4 @@ export default function GamePage() {
     </div>
   );
 }
+

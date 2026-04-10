@@ -3,9 +3,9 @@ import React, { useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
+import { getRigIntensity, increaseByRig, scaleDownByRig } from "@/lib/rigging";
 
 type Difficulty = "noob" | "pro" | "expert";
-const HARD_BALANCE = 8_900_000;
 
 const parseBet = (s: string): number => {
   const c = s.trim().toLowerCase().replace(/,/g, "");
@@ -37,9 +37,9 @@ export default function ChickenPage() {
   const [chickenShake, setChickenShake] = useState(false);
 
   const cfg = DIFF_CONFIG[difficulty];
-  const hardMode = balance >= HARD_BALANCE;
+  const rigIntensity = getRigIntensity(balance);
   const betAmount = parseBet(betInput);
-  const multScale = hardMode ? 0.35 : 0.6;
+  const multScale = scaleDownByRig(0.6, rigIntensity, 0.42);
   const currentMult = useMemo(() => (distance <= 0 ? 0.2 : Number((0.2 + (Math.pow(cfg.multFactor, distance) - 1) * multScale).toFixed(2))), [distance, cfg.multFactor, multScale]);
   const nextMult = Number((0.2 + (Math.pow(cfg.multFactor, distance + 1) - 1) * multScale).toFixed(2));
   const visibleLaneStart = distance;
@@ -56,7 +56,7 @@ export default function ChickenPage() {
   const advance = () => {
     if (!isPlaying || isHit) return;
     const nextLane = distance + 1;
-    const laneHitChance = Math.min(0.97, (cfg.baseHit + nextLane * 0.012) + (hardMode ? 0.22 : 0));
+    const laneHitChance = Math.min(0.97, increaseByRig(cfg.baseHit + nextLane * 0.012, rigIntensity, 0.22));
     if (Math.random() < laneHitChance) {
       setIsHit(true);
       setChickenShake(true);
@@ -157,7 +157,7 @@ export default function ChickenPage() {
           {/* Lanes */}
           {visibleLanes.map((laneNo) => {
             const passed = laneNo <= distance;
-            const laneSpeed = Math.max(0.45, (2.4 - laneNo * 0.045) / (cfg.speedFactor * (hardMode ? 1.35 : 1)));
+            const laneSpeed = Math.max(0.45, (2.4 - laneNo * 0.045) / (cfg.speedFactor * increaseByRig(1, rigIntensity, 0.35)));
             const carCount = laneNo % 3 === 0 ? 2 : 1;
             return (
               <div key={laneNo} className="relative overflow-hidden border-r border-white/5" style={{ width: LANE_W, height: BOARD_H, background: passed ? "rgba(34,197,94,0.05)" : "#1a1a1a" }}>
