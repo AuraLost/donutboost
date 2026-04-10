@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 
 type Difficulty = "noob" | "pro" | "expert";
+const HARD_BALANCE = 8_900_000;
 
 const parseBet = (s: string): number => {
   const c = s.trim().toLowerCase().replace(/,/g, "");
@@ -20,24 +21,25 @@ const parseBet = (s: string): number => {
 // Wheel segments: [label, multiplier, color, degrees]
 const SEGMENTS = [
   { label: "0x",   mult: 0,   color: "#ef4444", deg: 30 },
-  { label: "1.5x", mult: 1.5, color: "#2563eb", deg: 30 },
-  { label: "3x",   mult: 3,   color: "#7c3aed", deg: 30 },
+  { label: "0.4x", mult: 0.4, color: "#2563eb", deg: 30 },
+  { label: "0.8x", mult: 0.8, color: "#7c3aed", deg: 30 },
   { label: "0x",   mult: 0,   color: "#ef4444", deg: 30 },
-  { label: "2x",   mult: 2,   color: "#16a34a", deg: 30 },
-  { label: "0.5x", mult: 0.5, color: "#9a3412", deg: 30 },
-  { label: "5x",   mult: 5,   color: "#ca8a04", deg: 30 },
+  { label: "0.6x", mult: 0.6, color: "#16a34a", deg: 30 },
+  { label: "0.25x", mult: 0.25, color: "#9a3412", deg: 30 },
+  { label: "1.2x", mult: 1.2, color: "#ca8a04", deg: 30 },
   { label: "0x",   mult: 0,   color: "#ef4444", deg: 30 },
-  { label: "1x",   mult: 1,   color: "#334155", deg: 30 },
-  { label: "10x",  mult: 10,  color: "#b45309", deg: 30 },
-  { label: "0.5x", mult: 0.5, color: "#9a3412", deg: 30 },
-  { label: "2x",   mult: 2,   color: "#16a34a", deg: 30 },
+  { label: "0.3x", mult: 0.3, color: "#334155", deg: 30 },
+  { label: "1.5x", mult: 1.5, color: "#b45309", deg: 30 },
+  { label: "0.2x", mult: 0.2, color: "#9a3412", deg: 30 },
+  { label: "0.7x", mult: 0.7, color: "#16a34a", deg: 30 },
 ];
 
 // Weighted selection: on Noob shift toward higher multipliers, Expert toward lower
-const pickSegment = (diff: Difficulty): number => {
+const pickSegment = (diff: Difficulty, hardMode: boolean): number => {
   const weights = SEGMENTS.map((s, i) => {
-    if (diff === "noob")   return s.mult >= 2 ? 3 : s.mult === 0 ? 0.4 : 1;
-    if (diff === "expert") return s.mult === 0 ? 2.5 : s.mult >= 5 ? 0.5 : 1;
+    if (hardMode) return s.mult === 0 ? 5 : s.mult >= 1 ? 0.15 : 1;
+    if (diff === "noob")   return s.mult >= 1 ? 1.6 : s.mult === 0 ? 0.7 : 1;
+    if (diff === "expert") return s.mult === 0 ? 2.4 : s.mult >= 1 ? 0.45 : 1;
     return 1;
   });
   const total = weights.reduce((a, b) => a + b, 0);
@@ -50,7 +52,7 @@ const pickSegment = (diff: Difficulty): number => {
 };
 
 export default function WheelPage() {
-  const { bet, win } = useEconomy();
+  const { balance, bet, win } = useEconomy();
   const [betInput, setBetInput] = useState("1000");
   const [difficulty, setDifficulty] = useState<Difficulty>("noob");
   const [isSpinning, setIsSpinning] = useState(false);
@@ -61,6 +63,7 @@ export default function WheelPage() {
   const baseRotRef = useRef(0);
 
   const betAmount = parseBet(betInput);
+  const hardMode = balance >= HARD_BALANCE;
 
   // Build SVG paths for each segment
   const CX = 150, CY = 150, R = 140;
@@ -90,7 +93,7 @@ export default function WheelPage() {
     setLandedSeg(null);
     setOutcome(null);
 
-    const segIdx = pickSegment(difficulty);
+    const segIdx = pickSegment(difficulty, hardMode);
     // Center of segment N is at N*30 + 15 degrees from start
     // The pointer is at top (0 deg). We need segIdx*30+15 to face up after spin.
     // After spin, rotation % 360 should put the target segment center at 0 deg (top).
@@ -106,7 +109,7 @@ export default function WheelPage() {
       setLandedSeg(segIdx);
       setIsSpinning(false);
       const mult = SEGMENTS[segIdx].mult;
-      const amount = Math.floor(betAmount * mult);
+      const amount = Math.floor(betAmount * mult * (hardMode ? 0.5 : 1));
       if (mult > 0) {
         win(amount);
         useEconomy.getState().recordWin(betAmount, amount);

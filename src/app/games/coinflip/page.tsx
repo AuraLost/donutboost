@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 
 type Difficulty = "noob" | "pro" | "expert";
+const HARD_BALANCE = 8_900_000;
 
 const parseBet = (s: string): number => {
   const c = s.trim().toLowerCase().replace(/,/g, "");
@@ -18,9 +19,9 @@ const parseBet = (s: string): number => {
 };
 
 const DIFFICULTIES: Record<Difficulty, { label: string; color: string; multiplier: number; winChance: number }> = {
-  noob: { label: "Noob", color: "text-success", multiplier: 1.5, winChance: 0.62 },
-  pro: { label: "Pro", color: "text-primary", multiplier: 2.0, winChance: 0.5 },
-  expert: { label: "Expert", color: "text-danger", multiplier: 3.5, winChance: 0.38 },
+  noob: { label: "Noob", color: "text-success", multiplier: 0.9, winChance: 0.48 },
+  pro: { label: "Pro", color: "text-primary", multiplier: 0.75, winChance: 0.4 },
+  expert: { label: "Expert", color: "text-danger", multiplier: 0.6, winChance: 0.32 },
 };
 
 export default function CoinFlipPage() {
@@ -35,7 +36,8 @@ export default function CoinFlipPage() {
   const [popup, setPopup] = useState<{ won: boolean; amount: number; message: string } | null>(null);
 
   const betAmount = parseBet(betInput);
-  const payout = Math.floor(betAmount * DIFFICULTIES[difficulty].multiplier);
+  const hardMode = balance >= HARD_BALANCE;
+  const payout = Math.floor(betAmount * DIFFICULTIES[difficulty].multiplier * (hardMode ? 0.5 : 1));
 
   const flip = () => {
     if (!chosen || isFlipping || betAmount < 1000) return;
@@ -44,7 +46,8 @@ export default function CoinFlipPage() {
     setIsFlipping(true);
     setResult(null);
     setOutcome(null);
-    const landed: "heads" | "tails" = Math.random() < DIFFICULTIES[difficulty].winChance
+    const effectiveWinChance = DIFFICULTIES[difficulty].winChance * (hardMode ? 0.45 : 1);
+    const landed: "heads" | "tails" = Math.random() < effectiveWinChance
       ? chosen
       : (chosen === "heads" ? "tails" : "heads");
     setAnimClass(landed === "heads" ? "coin-flip-heads" : "coin-flip-tails");

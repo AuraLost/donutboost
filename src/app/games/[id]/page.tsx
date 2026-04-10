@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
 
 type Difficulty = "noob" | "pro" | "expert";
+const HARD_BALANCE = 8_900_000;
 
 // ===== Bet parsing =====
 const parseBet = (s: string): number => {
@@ -40,16 +41,17 @@ const PEG_SPACING = 38; // px between pegs
 const ROW_HEIGHT = 44;  // px per row
 
 // Build plinko multiplier table based on difficulty
-const getPlinkoMults = (diff: Difficulty): number[] => {
-  if (diff === "noob")   return [1000, 130, 26, 9, 4, 2, 4, 9, 26, 130, 1000];
-  if (diff === "pro")    return [500,  50, 10, 4, 2, 0.5, 2, 4, 10, 50, 500];
-  return [1000, 100, 25, 5, 1, 0.3, 1, 5, 25, 100, 1000];
+const getPlinkoMults = (diff: Difficulty, hardMode: boolean): number[] => {
+  if (hardMode) return [0, 0.1, 0.2, 0.35, 0.45, 0.55, 0.45, 0.35, 0.2, 0.1, 0];
+  if (diff === "noob") return [0.25, 0.4, 0.6, 0.8, 1.05, 1.2, 1.05, 0.8, 0.6, 0.4, 0.25];
+  if (diff === "pro") return [0.15, 0.3, 0.45, 0.65, 0.9, 1.05, 0.9, 0.65, 0.45, 0.3, 0.15];
+  return [0.1, 0.2, 0.35, 0.5, 0.75, 0.95, 0.75, 0.5, 0.35, 0.2, 0.1];
 };
 
 export default function GamePage() {
   const { id } = useParams();
   const gameType = typeof id === "string" ? id : "crash";
-  const { bet, win } = useEconomy();
+  const { balance, bet, win } = useEconomy();
 
   // ===== Shared state =====
   const [betInput, setBetInput] = useState("1000");
@@ -70,7 +72,8 @@ export default function GamePage() {
   const [grid, setGrid] = useState<boolean[]>(Array(25).fill(false));
   const [revealed, setRevealed] = useState<boolean[]>(Array(25).fill(false));
   const [minesCashout, setMinesCashout] = useState(1.00);
-  const mineCount = difficulty === "noob" ? 3 : difficulty === "pro" ? 7 : 15;
+  const hardMode = balance >= HARD_BALANCE;
+  const mineCount = (difficulty === "noob" ? 8 : difficulty === "pro" ? 11 : 14) + (hardMode ? 4 : 0);
 
   // ===== DICE =====
   const [winChance, setWinChance] = useState(50);
@@ -80,7 +83,7 @@ export default function GamePage() {
   // ===== PLINKO =====
   const [plinkoBall, setPlinkoBall] = useState<{ row: number; x: number; path: number[]; tilt: number } | null>(null);
   const [plinkoBallActive, setPlinkoBallActive] = useState(false);
-  const plinkoMults = getPlinkoMults(difficulty);
+  const plinkoMults = getPlinkoMults(difficulty, hardMode);
 
   useEffect(() => () => { if (crashIntervalRef.current) clearInterval(crashIntervalRef.current); }, []);
 
@@ -89,7 +92,8 @@ export default function GamePage() {
     const h = Math.random() * 99;
     const target = Math.max(1.01, parseFloat((100 / (100 - h)).toFixed(2)));
     // Expert = lower average target
-    const adjustedTarget = difficulty === "noob" ? target * 1.5 : difficulty === "expert" ? target * 0.6 : target;
+    const adjustedTargetBase = difficulty === "noob" ? target * 0.95 : difficulty === "expert" ? target * 0.45 : target * 0.7;
+    const adjustedTarget = hardMode ? adjustedTargetBase * 0.45 : adjustedTargetBase;
     setCrashMult(1.00); setHasCrashed(false); setIsPlaying(true);
     let current = 1.00;
     crashIntervalRef.current = setInterval(() => {
@@ -132,7 +136,8 @@ export default function GamePage() {
       setRevealed(Array(25).fill(true));
     } else {
       const safe = newRev.filter(Boolean).length;
-      const mult = parseFloat((1 + safe * (mineCount / 20)).toFixed(2));
+      const baseStep = hardMode ? 0.045 : 0.07;
+      const mult = parseFloat((0.25 + safe * baseStep).toFixed(2));
       setMinesCashout(mult);
     }
   };
@@ -148,7 +153,8 @@ export default function GamePage() {
   const startDice = () => {
     setIsPlaying(true); setIsRolling(true); setDiceRoll(null);
     // Noob: shifted win chance; Expert: harder
-    const effectiveChance = difficulty === "noob" ? Math.min(95, winChance * 1.15) : difficulty === "expert" ? winChance * 0.8 : winChance;
+    const baseChance = difficulty === "noob" ? winChance * 0.95 : difficulty === "expert" ? winChance * 0.65 : winChance * 0.8;
+    const effectiveChance = Math.max(1, Math.min(95, hardMode ? baseChance * 0.55 : baseChance));
     let ticks = 0;
     const iv = setInterval(() => {
       setDiceRoll(Math.floor(Math.random() * 100) + 1);
@@ -157,7 +163,8 @@ export default function GamePage() {
         const roll = Math.floor(Math.random() * 100) + 1;
         setDiceRoll(roll); setIsRolling(false); setIsPlaying(false);
         if (roll <= effectiveChance) {
-          const payout = Math.floor(betAmount * (99 / winChance));
+          const raw = betAmount * (99 / winChance);
+          const payout = Math.floor(raw * (hardMode ? 0.12 : 0.25));
           win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`); useEconomy.getState().recordWin(betAmount, payout);
         } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); useEconomy.getState().recordLoss(betAmount); }
       }

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 
 type Difficulty = "noob" | "pro" | "expert";
+const HARD_BALANCE = 8_900_000;
 
 const parseBet = (s: string): number => {
   const c = s.trim().toLowerCase().replace(/,/g, "");
@@ -26,7 +27,7 @@ const DIFF_CONFIG: Record<Difficulty, { label: string; baseHit: number; speedFac
 const VISIBLE_LANES = 7;
 
 export default function ChickenPage() {
-  const { bet, win } = useEconomy();
+  const { balance, bet, win } = useEconomy();
   const [betInput, setBetInput] = useState("1000");
   const [difficulty, setDifficulty] = useState<Difficulty>("noob");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,9 +37,11 @@ export default function ChickenPage() {
   const [chickenShake, setChickenShake] = useState(false);
 
   const cfg = DIFF_CONFIG[difficulty];
+  const hardMode = balance >= HARD_BALANCE;
   const betAmount = parseBet(betInput);
-  const currentMult = useMemo(() => (distance <= 0 ? 1 : Number((1 + Math.pow(cfg.multFactor, distance) - 1).toFixed(2))), [distance, cfg.multFactor]);
-  const nextMult = Number((1 + Math.pow(cfg.multFactor, distance + 1) - 1).toFixed(2));
+  const multScale = hardMode ? 0.35 : 0.6;
+  const currentMult = useMemo(() => (distance <= 0 ? 0.2 : Number((0.2 + (Math.pow(cfg.multFactor, distance) - 1) * multScale).toFixed(2))), [distance, cfg.multFactor, multScale]);
+  const nextMult = Number((0.2 + (Math.pow(cfg.multFactor, distance + 1) - 1) * multScale).toFixed(2));
   const visibleLaneStart = distance;
   const visibleLanes = Array.from({ length: VISIBLE_LANES }, (_, i) => visibleLaneStart + i + 1);
 
@@ -53,7 +56,7 @@ export default function ChickenPage() {
   const advance = () => {
     if (!isPlaying || isHit) return;
     const nextLane = distance + 1;
-    const laneHitChance = Math.min(0.88, cfg.baseHit + nextLane * 0.012);
+    const laneHitChance = Math.min(0.97, (cfg.baseHit + nextLane * 0.012) + (hardMode ? 0.22 : 0));
     if (Math.random() < laneHitChance) {
       setIsHit(true);
       setChickenShake(true);
@@ -154,7 +157,7 @@ export default function ChickenPage() {
           {/* Lanes */}
           {visibleLanes.map((laneNo) => {
             const passed = laneNo <= distance;
-            const laneSpeed = Math.max(0.7, (2.6 - laneNo * 0.04) / cfg.speedFactor);
+            const laneSpeed = Math.max(0.45, (2.4 - laneNo * 0.045) / (cfg.speedFactor * (hardMode ? 1.35 : 1)));
             const carCount = laneNo % 3 === 0 ? 2 : 1;
             return (
               <div key={laneNo} className="relative overflow-hidden border-r border-white/5" style={{ width: LANE_W, height: BOARD_H, background: passed ? "rgba(34,197,94,0.05)" : "#1a1a1a" }}>
