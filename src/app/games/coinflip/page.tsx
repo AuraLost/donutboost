@@ -19,9 +19,9 @@ const parseBet = (s: string): number => {
 };
 
 const DIFFICULTIES: Record<Difficulty, { label: string; color: string; multiplier: number; winChance: number }> = {
-  noob: { label: "Noob", color: "text-success", multiplier: 0.9, winChance: 0.48 },
-  pro: { label: "Pro", color: "text-primary", multiplier: 0.75, winChance: 0.4 },
-  expert: { label: "Expert", color: "text-danger", multiplier: 0.6, winChance: 0.32 },
+  noob: { label: "Noob", color: "text-success", multiplier: 1, winChance: 0.48 },
+  pro: { label: "Pro", color: "text-primary", multiplier: 1.25, winChance: 0.4 },
+  expert: { label: "Expert", color: "text-danger", multiplier: 1.6, winChance: 0.32 },
 };
 
 export default function CoinFlipPage() {

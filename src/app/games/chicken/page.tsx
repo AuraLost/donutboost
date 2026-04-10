@@ -40,9 +40,9 @@ export default function ChickenPage() {
   const rigIntensity = getRigIntensity(balance);
   const betAmount = parseBet(betInput);
   const multScale = scaleDownByRig(0.6, rigIntensity, 0.42);
-  const currentMult = useMemo(() => (distance <= 0 ? 0.2 : Number((0.2 + (Math.pow(cfg.multFactor, distance) - 1) * multScale).toFixed(2))), [distance, cfg.multFactor, multScale]);
-  const nextMult = Number((0.2 + (Math.pow(cfg.multFactor, distance + 1) - 1) * multScale).toFixed(2));
-  const visibleLaneStart = distance;
+  const currentMult = useMemo(() => (distance <= 0 ? 1 : Number((1 + (Math.pow(cfg.multFactor, distance) - 1) * multScale).toFixed(2))), [distance, cfg.multFactor, multScale]);
+  const nextMult = Number((1 + (Math.pow(cfg.multFactor, distance + 1) - 1) * multScale).toFixed(2));
+  const visibleLaneStart = Math.max(0, distance - 2);
   const visibleLanes = Array.from({ length: VISIBLE_LANES }, (_, i) => visibleLaneStart + i + 1);
 
   const startGame = () => {
@@ -78,8 +78,12 @@ export default function ChickenPage() {
     setPopup({ won: true, amount: payout, message: `Cashed out at lane ${distance} (${currentMult}x)` });
   };
 
+  const SAFE_W = 100;
   const LANE_W = 88;
   const BOARD_H = 380;
+  const chickenX = distance <= 0
+    ? SAFE_W / 2
+    : SAFE_W + ((distance - visibleLaneStart) - 0.5) * LANE_W;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] animate-in fade-in duration-500 relative">
@@ -149,9 +153,8 @@ export default function ChickenPage() {
       <main className="flex-1 flex items-center justify-center bg-black/20 overflow-hidden p-3 md:p-6">
         <div className="relative flex" style={{ height: BOARD_H }}>
           {/* Safe zone */}
-          <div className="relative flex items-center justify-center" style={{ width: 100, height: BOARD_H, background: "linear-gradient(180deg, #14532d 0%, #166534 100%)", borderRight: "2px solid #166534" }}>
-            <img src={isHit ? "https://img.icons8.com/fluency/96/skeleton.png" : "https://img.icons8.com/fluency/96/chicken.png"} alt="chicken" className={`w-14 h-14 transition-all duration-300 ${chickenShake ? "shake" : "chicken-walk"}`} />
-            <div className="absolute bottom-3 bg-black/60 rounded-lg px-2 py-1 text-[10px] font-black text-white/60 uppercase tracking-wide">{distance <= 0 ? "SAFE" : currentMult + "x"}</div>
+          <div className="relative flex items-center justify-center" style={{ width: SAFE_W, height: BOARD_H, background: "linear-gradient(180deg, #14532d 0%, #166534 100%)", borderRight: "2px solid #166534" }}>
+            <div className="absolute bottom-3 bg-black/60 rounded-lg px-2 py-1 text-[10px] font-black text-white/60 uppercase tracking-wide">{distance <= 0 ? "1x" : currentMult + "x"}</div>
           </div>
 
           {/* Lanes */}
@@ -181,17 +184,30 @@ export default function ChickenPage() {
                       alignItems: "center",
                       justifyContent: "center",
                     }}>
-                    <img src="https://img.icons8.com/color/96/car--v1.png" alt="car" className="w-10 h-10" />
+                    <span className="text-3xl" aria-hidden="true">🚗</span>
                   </div>
                 ))}
 
                 {/* Cashout label */}
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 rounded-full px-2 py-1 text-[9px] font-black text-white/60 z-10 whitespace-nowrap">
-                  {Number((1 + Math.pow(cfg.multFactor, laneNo) - 1).toFixed(2))}x
+                  {Number((1 + (Math.pow(cfg.multFactor, laneNo) - 1) * multScale).toFixed(2))}x
                 </div>
               </div>
             );
           })}
+
+          <div
+            className={`absolute z-20 pointer-events-none select-none text-4xl ${chickenShake ? "shake" : ""}`}
+            style={{
+              left: `${chickenX}px`,
+              bottom: "18px",
+              transform: "translateX(-50%)",
+              transition: "left 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            <span role="img" aria-label="chicken">🐔</span>
+            {isHit && <span className="ml-1 text-2xl" aria-hidden="true">💥</span>}
+          </div>
         </div>
       </main>
     </div>

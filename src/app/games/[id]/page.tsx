@@ -139,7 +139,7 @@ export default function GamePage() {
     } else {
       const safe = newRev.filter(Boolean).length;
       const baseStep = scaleDownByRig(0.07, rigIntensity, 0.35);
-      const mult = parseFloat((0.25 + safe * baseStep).toFixed(2));
+      const mult = parseFloat((1 + safe * baseStep).toFixed(2));
       setMinesCashout(mult);
     }
   };
