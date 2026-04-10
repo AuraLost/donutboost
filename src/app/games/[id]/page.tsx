@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Slider } from "@heroui/react";
+import { Alert, Button, Slider } from "@heroui/react";
 import { Play, Gem, Bomb, Zap, Dice5, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
@@ -244,20 +244,28 @@ export default function GamePage() {
       {/* ===== Result Popup ===== */}
       {popup && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
-          <div className={`pointer-events-auto relative p-8 rounded-3xl border text-center animate-in zoom-in-90 duration-300 shadow-2xl max-w-sm mx-4 ${popup.won ? "bg-[#0c1f0f] border-success/30" : "bg-[#1f0c0c] border-danger/30"}`}>
-            <button onClick={() => setPopup(null)} className="absolute top-3 right-3 text-white/30 hover:text-white">
-              <X size={18} />
-            </button>
-            <p className={`text-5xl font-black italic mb-2 ${popup.won ? "text-success" : "text-danger"}`}>
-              {popup.won ? "WIN!" : "LOSS"}
-            </p>
-            <p className="text-white/50 text-sm font-bold mb-3">{popup.message}</p>
-            {popup.won && (
-              <p className="text-success font-black text-2xl">+{formatMoney(popup.amount)}</p>
-            )}
-            <Button onClick={() => setPopup(null)} className={`mt-4 h-10 px-8 rounded-2xl font-black text-sm ${popup.won ? "bg-success text-black" : "bg-danger text-white"}`}>
-              {popup.won ? "Collect!" : "Try Again"}
-            </Button>
+          <div className="pointer-events-auto animate-in zoom-in-90 duration-300 max-w-sm mx-4 w-full">
+            <Alert
+              status={popup.message.toLowerCase().includes("insufficient") || popup.message.toLowerCase().includes("minimum") ? "warning" : popup.won ? "success" : "danger"}
+              className="rounded-3xl"
+            >
+              <Alert.Indicator />
+              <Alert.Content className="gap-2 w-full">
+                <div className="flex items-start justify-between gap-2">
+                  <Alert.Title className="font-black italic text-lg">
+                    {popup.message.toLowerCase().includes("insufficient") || popup.message.toLowerCase().includes("minimum") ? "WARNING" : popup.won ? "WIN!" : "LOSS"}
+                  </Alert.Title>
+                  <button onClick={() => setPopup(null)} className="text-white/40 hover:text-white" aria-label="Close alert">
+                    <X size={16} />
+                  </button>
+                </div>
+                <Alert.Description className="text-sm font-bold text-white/70">{popup.message}</Alert.Description>
+                {popup.won && <p className="text-success font-black text-2xl">+{formatMoney(popup.amount)}</p>}
+                <Button onClick={() => setPopup(null)} className={`mt-2 h-10 px-8 rounded-2xl font-black text-sm ${popup.won ? "bg-success text-black" : "bg-white/15 text-white"}`}>
+                  {popup.won ? "Collect!" : "Close"}
+                </Button>
+              </Alert.Content>
+            </Alert>
           </div>
         </div>
       )}
