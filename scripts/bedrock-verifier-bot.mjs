@@ -21,6 +21,7 @@ let connectionWatchdogTimer = null;
 let isStopping = false;
 let tickCounter = 0;
 let currentPosition = { x: 0, y: 0, z: 0 };
+let runtimeEntityId = null;
 let lastPacketAt = Date.now();
 
 const senderRateLimit = new Map();
@@ -161,13 +162,14 @@ function startAntiAfk() {
     tickCounter += 1;
     const moveRight = tickCounter % 2 === 0;
     const wiggle = moveRight ? 0.16 : -0.16;
+    const yaw = moveRight ? 8 : -8;
     try {
       client.queue("player_auth_input", {
         pitch: 0,
-        yaw: 0,
+        yaw,
         position: currentPosition,
         move_vector: { x: wiggle, z: 0 },
-        head_yaw: 0,
+        head_yaw: yaw,
         input_data: { right: moveRight, left: !moveRight },
         input_mode: "mouse",
         play_mode: "normal",
@@ -179,6 +181,23 @@ function startAntiAfk() {
         camera_orientation: { x: 0, y: 0, z: 1 },
         raw_move_vector: { x: wiggle, z: 0 },
       });
+      if (runtimeEntityId !== null) {
+        client.queue("move_player", {
+          runtime_id: runtimeEntityId,
+          position: {
+            x: currentPosition.x + wiggle * 0.02,
+            y: currentPosition.y,
+            z: currentPosition.z,
+          },
+          pitch: 0,
+          yaw,
+          head_yaw: yaw,
+          mode: "normal",
+          on_ground: true,
+          ridden_runtime_id: 0,
+          tick: tickCounter,
+        });
+      }
     } catch (error) {
       console.error("[bot] anti-afk send error:", error);
     }
@@ -232,6 +251,7 @@ function attachHandlers(bot) {
   bot.on("join", () => {
     reconnectDelay = 2_000;
     lastPacketAt = Date.now();
+    runtimeEntityId = null;
     console.log("[bot] joined server");
   });
 
@@ -336,3 +356,15 @@ process.on("SIGINT", () => {
 });
 
 connect();
+  bot.on("start_game", (packet) => {
+    if (packet?.runtime_entity_id !== undefined && packet?.runtime_entity_id !== null) {
+      runtimeEntityId = packet.runtime_entity_id;
+    }
+    if (packet?.player_position) {
+      currentPosition = {
+        x: Number(packet.player_position.x || 0),
+        y: Number(packet.player_position.y || 0),
+        z: Number(packet.player_position.z || 0),
+      };
+    }
+  });
