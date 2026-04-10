@@ -24,7 +24,6 @@ const games = [
 
 const navItems = [
   { name: "Home",    icon: Home,   href: "/home" },
-  { name: "Dashboard", icon: Home,   href: "/" },
   { name: "Daily",   icon: Gift,   href: "/daily" },
   { name: "Live",    icon: Trophy, href: "/livebets" },
 ];
