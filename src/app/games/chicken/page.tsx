@@ -42,7 +42,7 @@ export default function ChickenPage() {
   const multScale = scaleDownByRig(0.6, rigIntensity, 0.42);
   const currentMult = useMemo(() => (distance <= 0 ? 1 : Number((1 + (Math.pow(cfg.multFactor, distance) - 1) * multScale).toFixed(2))), [distance, cfg.multFactor, multScale]);
   const nextMult = Number((1 + (Math.pow(cfg.multFactor, distance + 1) - 1) * multScale).toFixed(2));
-  const visibleLaneStart = Math.max(0, distance - 2);
+  const visibleLaneStart = Math.max(0, distance - 3);
   const visibleLanes = Array.from({ length: VISIBLE_LANES }, (_, i) => visibleLaneStart + i + 1);
 
   const startGame = () => {
@@ -81,9 +81,7 @@ export default function ChickenPage() {
   const SAFE_W = 100;
   const LANE_W = 88;
   const BOARD_H = 380;
-  const chickenX = distance <= 0
-    ? SAFE_W / 2
-    : SAFE_W + ((distance - visibleLaneStart) - 0.5) * LANE_W;
+  const chickenX = SAFE_W + (Math.floor(VISIBLE_LANES / 2) + 0.5) * LANE_W;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] animate-in fade-in duration-500 relative">
@@ -119,7 +117,7 @@ export default function ChickenPage() {
                 <CircleHelp size={16} />
               </button>
             </Tooltip.Trigger>
-            <Tooltip.Content placement="left">Advance lanes to grow multiplier, then cash out before getting hit.</Tooltip.Content>
+            <Tooltip.Content placement="left">Move lanes to grow multiplier, then cash out before getting hit.</Tooltip.Content>
           </Tooltip>
         </div>
         <div>
@@ -161,7 +159,7 @@ export default function ChickenPage() {
           ) : (
             <>
               <Button onClick={advance} className="w-full h-12 bg-white/10 border border-white/20 text-white font-black rounded-2xl hover:bg-white/15 transition-all">
-                ADVANCE → <span className="text-primary ml-1">{nextMult}x</span>
+                MOVE <span className="text-primary ml-1">{nextMult}x</span>
               </Button>
               <Button onClick={cashOut} isDisabled={distance <= 0} className="w-full h-12 bg-success text-black font-black rounded-2xl">
                 CASH OUT ${distance > 0 ? Math.floor(betAmount * currentMult).toLocaleString() : "0"}
