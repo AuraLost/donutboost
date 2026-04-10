@@ -22,6 +22,7 @@ let dbInstance: Database.Database | null = null;
 const getDbPath = () => {
   const custom = process.env.MC_VERIFY_DB_PATH?.trim();
   if (custom) return path.resolve(custom);
+  if (process.env.VERCEL) return "/tmp/minecraft-verification.db";
   return path.join(process.cwd(), "data", "minecraft-verification.db");
 };
 
@@ -114,4 +115,3 @@ export const getVerificationStatus = (webUserId: string) => {
   }
   return row;
 };
-
