@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
-import { Alert, Button } from "@heroui/react";
-import { X } from "lucide-react";
+import { Alert, Button, Tooltip } from "@heroui/react";
+import { CircleHelp, X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 import { getRigIntensity, increaseByRig, scaleDownByRig } from "@/lib/rigging";
 
@@ -111,6 +111,17 @@ export default function ChickenPage() {
       )}
       {/* Bet Panel */}
       <aside className="w-full lg:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/40 p-4 md:p-6 flex flex-col gap-5 overflow-y-auto">
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50">Chicken Info</p>
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button className="text-white/50 hover:text-white" aria-label="Chicken info">
+                <CircleHelp size={16} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="left">Advance lanes to grow multiplier, then cash out before getting hit.</Tooltip.Content>
+          </Tooltip>
+        </div>
         <div>
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-2 block">Bet Amount</label>
           <input value={betInput} onChange={e => setBetInput(e.target.value)} disabled={isPlaying}

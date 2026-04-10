@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Alert, Button, Slider } from "@heroui/react";
-import { Play, Gem, Bomb, Zap, Dice5, X } from "lucide-react";
+import { Alert, Button, Slider, Tooltip } from "@heroui/react";
+import { CircleHelp, Play, Gem, Bomb, Zap, Dice5, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
 import { getRigIntensity, scaleDownByRig } from "@/lib/rigging";
@@ -54,6 +54,12 @@ export default function GamePage() {
   const { id } = useParams();
   const gameType = typeof id === "string" ? id : "crash";
   const { balance, bet, win } = useEconomy();
+  const gameInfo: Record<string, string> = {
+    crash: "Multiplier rises live. Cash out before crash to lock profit.",
+    mines: "Reveal safe tiles to increase multiplier. One mine ends the round.",
+    dice: "Roll under target chance to win. Lower chance pays higher.",
+    plinko: "Drop ball through pegs. Outside buckets pay better than center.",
+  };
 
   // ===== Shared state =====
   const [betInput, setBetInput] = useState("1000");
@@ -272,6 +278,17 @@ export default function GamePage() {
 
       {/* ===== Betting Panel ===== */}
       <aside className="w-full lg:w-64 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/40 p-4 md:p-5 flex flex-col gap-4 overflow-y-auto">
+        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50">Game Info</p>
+          <Tooltip>
+            <Tooltip.Trigger>
+              <button className="text-white/50 hover:text-white" aria-label="Game info">
+                <CircleHelp size={16} />
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Content placement="right">{gameInfo[gameType] ?? "Place your bet and follow the game rules to cash out."}</Tooltip.Content>
+          </Tooltip>
+        </div>
         <div>
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5 block">Bet Amount</label>
           <input
