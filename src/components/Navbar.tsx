@@ -68,7 +68,7 @@ export function Navbar() {
         <div className="flex items-center justify-between w-full h-full max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-3 md:gap-6">
-            <Link href="/landing" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
+            <Link href="/" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
                <img 
                  src="/logo.png" 
                  alt="DonutBoost Logo" 
@@ -77,7 +77,7 @@ export function Navbar() {
                <span className="text-xl font-black tracking-tight text-white leading-none">DONUT<span className="text-primary">BOOST</span></span>
             </Link>
             <div className="hidden md:flex items-center gap-2">
-              <Link href="/" className={`px-3 py-1.5 rounded-lg text-xs font-black border ${pathname === "/" ? "bg-primary/15 text-primary border-primary/30" : "text-white/50 border-white/10 hover:text-white"}`}>Dashboard</Link>
+              <Link href="/home" className={`px-3 py-1.5 rounded-lg text-xs font-black border ${pathname === "/home" ? "bg-primary/15 text-primary border-primary/30" : "text-white/50 border-white/10 hover:text-white"}`}>Dashboard</Link>
               <Link href="/games/crash" className="px-3 py-1.5 rounded-lg text-xs font-black border text-white/50 border-white/10 hover:text-white">Games</Link>
               <Link href="/livebets" className="px-3 py-1.5 rounded-lg text-xs font-black border text-white/50 border-white/10 hover:text-white">Live</Link>
             </div>

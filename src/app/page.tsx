@@ -1,82 +1,43 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Card, Button } from "@heroui/react";
-import { Wallet, Trophy, Skull, Gamepad2, Link2 } from "lucide-react";
-import { useEconomy } from "@/hooks/use-economy";
+import React from "react";
+import { Button } from "@heroui/react";
+import { Play, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
-const DISCORD_KEY = "donutboost_discord_linked";
-const DISCORD_TAG_KEY = "donutboost_discord_tag";
-
-const formatMoney = (v: number) => {
-  if (v >= 1e12) return "$" + (v / 1e12).toFixed(2) + "T";
-  if (v >= 1e9) return "$" + (v / 1e9).toFixed(2) + "B";
-  if (v >= 1e6) return "$" + (v / 1e6).toFixed(2) + "M";
-  if (v >= 1e3) return "$" + (v / 1e3).toFixed(1) + "K";
-  return "$" + v.toLocaleString();
-};
-
-export default function Home() {
-  const { balance, totalWins, totalLosses, totalWagered, totalPayout } = useEconomy();
-  const [discordLinked, setDiscordLinked] = useState(false);
-  const [discordTag, setDiscordTag] = useState("");
-
-  useEffect(() => {
-    setDiscordLinked(localStorage.getItem(DISCORD_KEY) === "true");
-    setDiscordTag(localStorage.getItem(DISCORD_TAG_KEY) || "");
-  }, []);
-
+export default function LandingPage() {
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight">Dashboard</h1>
-          <p className="text-white/40 font-medium text-sm md:text-base">Your account, performance, and current wallet status.</p>
-        </div>
-        <Link href="/landing">
-          <Button className="bg-primary text-black font-black">Open Landing Page</Button>
+    <div className="flex flex-col items-center pt-16 md:pt-24 pb-16 px-6 max-w-5xl mx-auto w-full text-center relative">
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-primary/10 blur-[130px] rounded-full pointer-events-none -z-10" />
+
+      <div className="relative mb-8 md:mb-10 group">
+        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-110 opacity-60" />
+        <img src="/donutsmp.png" alt="Donut SMP" className="w-32 h-32 md:w-44 md:h-44 object-contain relative z-10 drop-shadow-2xl" />
+      </div>
+
+      <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] md:text-xs font-black tracking-[0.2em] mb-6 uppercase">
+        <ShieldCheck size={14} /> Provably Fair · Donut SMP Economy
+      </div>
+
+      <h1 className="text-4xl md:text-8xl font-black tracking-tight leading-[0.95] mb-4">
+        Multiply your <span className="text-primary italic">Wealth</span>
+      </h1>
+      <p className="text-sm md:text-lg text-white/40 font-medium max-w-xl mx-auto leading-relaxed mb-8">
+        Casino games built for Donut SMP players with instant wallet-based gameplay.
+      </p>
+
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <Link href="/games/crash">
+          <Button size="lg" className="bg-primary text-black font-black px-10 h-12 rounded-2xl">
+            <Play className="mr-2" size={18} fill="currentColor" />
+            Play Now
+          </Button>
         </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Wallet Value</p>
-          <p className="text-3xl font-black mt-2 flex items-center gap-2"><Wallet className="text-primary" size={20} /> {formatMoney(balance)}</p>
-        </Card>
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Wins</p>
-          <p className="text-3xl font-black mt-2 text-success flex items-center gap-2"><Trophy size={20} /> {totalWins}</p>
-        </Card>
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Losses</p>
-          <p className="text-3xl font-black mt-2 text-danger flex items-center gap-2"><Skull size={20} /> {totalLosses}</p>
-        </Card>
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Discord</p>
-          <p className="text-xl font-black mt-2 flex items-center gap-2">
-            <Link2 size={18} className={discordLinked ? "text-success" : "text-white/40"} />
-            {discordLinked ? (discordTag || "Linked") : "Not Linked"}
-          </p>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Total Wagered</p>
-          <p className="text-2xl font-black mt-2">{formatMoney(totalWagered)}</p>
-        </Card>
-        <Card className="bg-white/5 border border-white/10 p-5">
-          <p className="text-white/40 text-xs font-black uppercase tracking-widest">Total Payout</p>
-          <p className="text-2xl font-black mt-2 text-success">{formatMoney(totalPayout)}</p>
-        </Card>
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link href="/games/crash"><Button className="bg-primary text-black font-black"><Gamepad2 size={16} /> Crash</Button></Link>
-        <Link href="/games/plinko"><Button className="bg-white/10 text-white font-black">Plinko</Button></Link>
-        <Link href="/games/coinflip"><Button className="bg-white/10 text-white font-black">Coin Flip</Button></Link>
-        <Link href="/games/chicken"><Button className="bg-white/10 text-white font-black">Chicken</Button></Link>
+        <Link href="/home">
+          <Button variant="ghost" size="lg" className="h-12 px-8 rounded-2xl text-white/70 border border-white/10">
+            Open Dashboard
+          </Button>
+        </Link>
       </div>
     </div>
   );

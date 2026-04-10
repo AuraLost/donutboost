@@ -33,7 +33,7 @@ export default function LandingPage() {
             Play Now
           </Button>
         </Link>
-        <Link href="/">
+        <Link href="/home">
           <Button variant="ghost" size="lg" className="h-12 px-8 rounded-2xl text-white/70 border border-white/10">
             Open Dashboard
           </Button>
