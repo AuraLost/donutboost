@@ -49,7 +49,7 @@ const getPlinkoMults = (diff: Difficulty): number[] => {
 export default function GamePage() {
   const { id } = useParams();
   const gameType = typeof id === "string" ? id : "crash";
-  const { balance, bet, win } = useEconomy();
+  const { bet, win } = useEconomy();
 
   // ===== Shared state =====
   const [betInput, setBetInput] = useState("1000");
@@ -98,6 +98,7 @@ export default function GamePage() {
         clearInterval(crashIntervalRef.current!);
         setCrashMult(current); setHasCrashed(true); setIsPlaying(false);
         showPopup(false, 0, `Crashed at ${current.toFixed(2)}x! You lost.`);
+        useEconomy.getState().recordLoss(betAmount);
       } else { setCrashMult(current); }
     }, 60);
   };
@@ -106,6 +107,7 @@ export default function GamePage() {
     if (crashIntervalRef.current) clearInterval(crashIntervalRef.current);
     const payout = Math.floor(betAmount * crashMult);
     win(payout); setIsPlaying(false);
+    useEconomy.getState().recordWin(betAmount, payout);
     showPopup(true, payout, `Cashed out at ${crashMult.toFixed(2)}x!`);
   };
 
@@ -126,6 +128,7 @@ export default function GamePage() {
     if (grid[idx]) {
       setIsPlaying(false);
       showPopup(false, 0, "BOOM! You hit a mine.");
+      useEconomy.getState().recordLoss(betAmount);
       setRevealed(Array(25).fill(true));
     } else {
       const safe = newRev.filter(Boolean).length;
@@ -137,6 +140,7 @@ export default function GamePage() {
   const cashoutMines = () => {
     const payout = Math.floor(betAmount * minesCashout);
     win(payout); setIsPlaying(false);
+    useEconomy.getState().recordWin(betAmount, payout);
     showPopup(true, payout, `Cashed out at ${minesCashout.toFixed(2)}x!`);
   };
 
@@ -154,8 +158,8 @@ export default function GamePage() {
         setDiceRoll(roll); setIsRolling(false); setIsPlaying(false);
         if (roll <= effectiveChance) {
           const payout = Math.floor(betAmount * (99 / winChance));
-          win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`);
-        } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); }
+          win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`); useEconomy.getState().recordWin(betAmount, payout);
+        } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); useEconomy.getState().recordLoss(betAmount); }
       }
     }, 50);
   };
@@ -193,6 +197,8 @@ export default function GamePage() {
         clearInterval(stepIv);
         const payout = Math.floor(betAmount * mult);
         win(payout);
+        if (mult > 1) useEconomy.getState().recordWin(betAmount, payout);
+        else useEconomy.getState().recordLoss(betAmount);
         setTimeout(() => {
           setPlinkoBall(null);
           setPlinkoBallActive(false);
@@ -220,7 +226,7 @@ export default function GamePage() {
   const PLINKO_H = PLINKO_ROWS * ROW_HEIGHT + 80;
 
   return (
-    <div className="flex h-full animate-in fade-in duration-500 relative">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] animate-in fade-in duration-500 relative">
 
       {/* ===== Result Popup ===== */}
       {popup && (
@@ -244,7 +250,7 @@ export default function GamePage() {
       )}
 
       {/* ===== Betting Panel ===== */}
-      <aside className="w-64 flex-shrink-0 border-r border-white/5 bg-black/40 p-5 flex flex-col gap-4 overflow-y-auto">
+      <aside className="w-full lg:w-64 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/40 p-4 md:p-5 flex flex-col gap-4 overflow-y-auto">
         <div>
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5 block">Bet Amount</label>
           <input
@@ -325,7 +331,7 @@ export default function GamePage() {
       </aside>
 
       {/* ===== Game Canvas ===== */}
-      <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden">
+      <main className="flex-1 flex items-center justify-center p-3 md:p-8 bg-black/20 overflow-hidden">
 
         {/* CRASH */}
         {gameType === "crash" && (

@@ -24,6 +24,7 @@ const games = [
 
 const navItems = [
   { name: "Home",    icon: Home,   href: "/" },
+  { name: "Landing", icon: Home,   href: "/landing" },
   { name: "Daily",   icon: Gift,   href: "/daily" },
   { name: "Live",    icon: Trophy, href: "/livebets" },
 ];
@@ -70,7 +71,7 @@ export function Sidebar() {
 
   const openWallet = () => window.dispatchEvent(new Event("open-wallet"));
 
-  if (pathname === "/") return null;
+  if (pathname === "/landing") return null;
 
   return (
     // Wrapper uses overflow-visible so the toggle button can poke out

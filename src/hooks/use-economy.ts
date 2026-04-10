@@ -6,6 +6,10 @@ import { persist } from "zustand/middleware";
 interface EconomyState {
   balance: number;
   initialBonusClaimed: boolean;
+  totalWins: number;
+  totalLosses: number;
+  totalWagered: number;
+  totalPayout: number;
   minDeposit: number;
   maxDeposit: number;
   minPayout: number;
@@ -16,6 +20,8 @@ interface EconomyState {
   bet: (amount: number) => boolean;
   win: (amount: number) => void;
   claimInitialBonus: () => void;
+  recordLoss: (amount: number) => void;
+  recordWin: (betAmount: number, payoutAmount: number) => void;
 }
 
 export const useEconomy = create<EconomyState>()(
@@ -23,6 +29,10 @@ export const useEconomy = create<EconomyState>()(
     (set, get) => ({
       balance: 0,
       initialBonusClaimed: false,
+      totalWins: 0,
+      totalLosses: 0,
+      totalWagered: 0,
+      totalPayout: 0,
       minDeposit: 1_000_000,
       maxDeposit: 1_000_000_000_000,
       minPayout: 10_000_000,
@@ -55,7 +65,10 @@ export const useEconomy = create<EconomyState>()(
 
       bet: (amount: number) => {
         if (get().balance >= amount && amount >= 1000) {
-          set((state) => ({ balance: state.balance - amount }));
+          set((state) => ({
+            balance: state.balance - amount,
+            totalWagered: state.totalWagered + amount,
+          }));
           return true;
         }
         return false;
@@ -63,6 +76,17 @@ export const useEconomy = create<EconomyState>()(
 
       win: (amount: number) => {
         set((state) => ({ balance: state.balance + amount }));
+      },
+
+      recordLoss: () => {
+        set((state) => ({ totalLosses: state.totalLosses + 1 }));
+      },
+
+      recordWin: (_betAmount: number, payoutAmount: number) => {
+        set((state) => ({
+          totalWins: state.totalWins + 1,
+          totalPayout: state.totalPayout + payoutAmount,
+        }));
       },
     }),
     {

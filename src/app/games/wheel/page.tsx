@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useCallback } from "react";
 import { Button } from "@heroui/react";
+import { X } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 
 type Difficulty = "noob" | "pro" | "expert";
@@ -56,6 +57,7 @@ export default function WheelPage() {
   const [rotation, setRotation] = useState(0);
   const [landedSeg, setLandedSeg] = useState<number | null>(null);
   const [outcome, setOutcome] = useState<{ won: boolean; mult: number; amount: number } | null>(null);
+  const [popup, setPopup] = useState<{ won: boolean; amount: number; message: string } | null>(null);
   const baseRotRef = useRef(0);
 
   const betAmount = parseBet(betInput);
@@ -105,15 +107,32 @@ export default function WheelPage() {
       setIsSpinning(false);
       const mult = SEGMENTS[segIdx].mult;
       const amount = Math.floor(betAmount * mult);
-      if (mult > 0) win(amount);
+      if (mult > 0) {
+        win(amount);
+        useEconomy.getState().recordWin(betAmount, amount);
+      } else {
+        useEconomy.getState().recordLoss(betAmount);
+      }
       setOutcome({ won: mult > 0, mult, amount });
+      setPopup({ won: mult > 0, amount, message: mult > 0 ? `Landed ${mult}x` : "Landed 0x" });
     }, 4500);
   };
 
   return (
-    <div className="flex h-full animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] animate-in fade-in duration-500 relative">
+      {popup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
+          <div className={`pointer-events-auto relative p-8 rounded-3xl border text-center animate-in zoom-in-90 duration-300 shadow-2xl max-w-sm mx-4 ${popup.won ? "bg-[#0c1f0f] border-success/30" : "bg-[#1f0c0c] border-danger/30"}`}>
+            <button onClick={() => setPopup(null)} className="absolute top-3 right-3 text-white/30 hover:text-white"><X size={18} /></button>
+            <p className={`text-5xl font-black italic mb-2 ${popup.won ? "text-success" : "text-danger"}`}>{popup.won ? "WIN!" : "LOSS"}</p>
+            <p className="text-white/50 text-sm font-bold mb-3">{popup.message}</p>
+            {popup.won && <p className="text-success font-black text-2xl">+${popup.amount.toLocaleString()}</p>}
+            <Button onClick={() => setPopup(null)} className={`mt-4 h-10 px-8 rounded-2xl font-black text-sm ${popup.won ? "bg-success text-black" : "bg-danger text-white"}`}>{popup.won ? "Collect!" : "Try Again"}</Button>
+          </div>
+        </div>
+      )}
       {/* Bet Panel */}
-      <aside className="w-72 flex-shrink-0 border-r border-white/5 bg-black/40 p-6 flex flex-col gap-5 overflow-y-auto">
+      <aside className="w-full lg:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/5 bg-black/40 p-4 md:p-6 flex flex-col gap-5 overflow-y-auto">
         <div>
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-2 block">Bet Amount</label>
           <input value={betInput} onChange={e => setBetInput(e.target.value)} disabled={isSpinning}
@@ -163,7 +182,7 @@ export default function WheelPage() {
       </aside>
 
       {/* Wheel Canvas */}
-      <main className="flex-1 flex flex-col items-center justify-center bg-black/20 gap-8">
+      <main className="flex-1 flex flex-col items-center justify-center bg-black/20 gap-8 p-4 md:p-8">
         {/* Pointer */}
         <div className="relative">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20">

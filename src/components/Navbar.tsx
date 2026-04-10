@@ -7,7 +7,6 @@ import {
   Wallet,
   X,
   Link2,
-  LogIn,
   CheckCircle,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -65,11 +64,11 @@ export function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-2xl border-b border-white/5 z-50 px-6">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-2xl border-b border-white/5 z-50 px-4 md:px-6">
         <div className="flex items-center justify-between w-full h-full max-w-7xl mx-auto">
           {/* Logo */}
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
+          <div className="flex items-center gap-3 md:gap-6">
+            <Link href="/landing" className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95">
                <img 
                  src="/logo.png" 
                  alt="DonutBoost Logo" 
@@ -77,6 +76,11 @@ export function Navbar() {
                />
                <span className="text-xl font-black tracking-tight text-white leading-none">DONUT<span className="text-primary">BOOST</span></span>
             </Link>
+            <div className="hidden md:flex items-center gap-2">
+              <Link href="/" className={`px-3 py-1.5 rounded-lg text-xs font-black border ${pathname === "/" ? "bg-primary/15 text-primary border-primary/30" : "text-white/50 border-white/10 hover:text-white"}`}>Dashboard</Link>
+              <Link href="/games/crash" className="px-3 py-1.5 rounded-lg text-xs font-black border text-white/50 border-white/10 hover:text-white">Games</Link>
+              <Link href="/livebets" className="px-3 py-1.5 rounded-lg text-xs font-black border text-white/50 border-white/10 hover:text-white">Live</Link>
+            </div>
           </div>
 
           {/* Right */}
