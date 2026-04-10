@@ -15,8 +15,10 @@ import {
   TrendingUp, 
   Trophy,
   Activity,
-  ArrowUpRight
+  ArrowUpRight,
+  Wallet
 } from "lucide-react";
+import { useEconomy } from "@/hooks/use-economy";
 
 const recentBets = [
   { id: 1, user: "Steve", game: "Crash", amount: "$420.00", multiplier: "1.42x", prize: "$596.40", time: "1s ago", avatar: "https://i.pravatar.cc/150?u=steve" },
@@ -27,6 +29,17 @@ const recentBets = [
 ];
 
 export default function LiveBets() {
+  const { balance } = useEconomy();
+  const formatMoney = (n: number) => {
+    if (n >= 1e12) return "$" + (n / 1e12).toFixed(2) + "T";
+    if (n >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K";
+    return "$" + n.toLocaleString();
+  };
+
+  const openWallet = () => window.dispatchEvent(new Event("open-wallet"));
+
   return (
     <div className="flex flex-col gap-8 p-8 max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-2">
@@ -118,8 +131,11 @@ export default function LiveBets() {
                     <span className="font-bold text-white">1,240</span>
                  </div>
                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted">Game Server Load</span>
-                    <span className="font-bold text-primary italic">12%</span>
+                    <span className="text-xs text-muted">Wallet Value</span>
+                    <button onClick={openWallet} className="font-bold text-primary inline-flex items-center gap-1.5 hover:text-blue-300 transition-colors">
+                      <Wallet size={13} />
+                      {formatMoney(balance)}
+                    </button>
                  </div>
               </div>
            </Card>

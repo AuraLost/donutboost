@@ -29,15 +29,20 @@ export function Navbar() {
   const [discordTag, setDiscordTag] = useState("");
   const [maintenanceType, setMaintenanceType] = useState<"deposit" | "withdraw">("deposit");
 
-  // Persist Discord link state across sessions
+  // Persist
   useEffect(() => {
     const linked = localStorage.getItem(DISCORD_KEY) === "true";
     const tag = localStorage.getItem(DISCORD_TAG_KEY) || "";
     setDiscordLinked(linked);
     setDiscordTag(tag);
+    // Listen for sidebar wallet trigger
+    const handler = () => setWalletOpen(true);
+    window.addEventListener("open-wallet", handler);
+    return () => window.removeEventListener("open-wallet", handler);
   }, []);
 
   const formatBalance = (val: number) => {
+    if (val >= 1_000_000_000_000) return "$" + (val / 1_000_000_000_000).toFixed(2) + "T";
     if (val >= 1_000_000_000) return "$" + (val / 1_000_000_000).toFixed(2) + "B";
     if (val >= 1_000_000)     return "$" + (val / 1_000_000).toFixed(2) + "M";
     if (val >= 1_000)         return "$" + (val / 1_000).toFixed(1) + "K";

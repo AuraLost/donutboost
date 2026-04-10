@@ -1,497 +1,447 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { 
-  Button, 
-  Input, 
-  Tabs,
-  AlertDialog,
-  Slider
-} from "@heroui/react";
-import { 
-  Play, 
-  RotateCcw, 
-  ChevronLeft,
-  Settings2,
-  Wallet,
-  Gem,
-  Bomb,
-  Zap,
-  Dice5
-} from "lucide-react";
-import Link from "next/link";
+import { Button, Slider } from "@heroui/react";
+import { Play, Gem, Bomb, Zap, Dice5, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
+
+type Difficulty = "noob" | "pro" | "expert";
+
+// ===== Bet parsing =====
+const parseBet = (s: string): number => {
+  const c = s.trim().toLowerCase().replace(/,/g, "");
+  const n = parseFloat(c);
+  if (isNaN(n) || n <= 0) return 0;
+  if (c.endsWith("t")) return n * 1e12;
+  if (c.endsWith("b")) return n * 1e9;
+  if (c.endsWith("m")) return n * 1e6;
+  if (c.endsWith("k")) return n * 1e3;
+  return n;
+};
+
+const formatMoney = (n: number) => {
+  if (n >= 1e12) return "$" + (n/1e12).toFixed(2) + "T";
+  if (n >= 1e9)  return "$" + (n/1e9).toFixed(2) + "B";
+  if (n >= 1e6)  return "$" + (n/1e6).toFixed(2) + "M";
+  if (n >= 1e3)  return "$" + (n/1e3).toFixed(1) + "K";
+  return "$" + n.toLocaleString();
+};
+
+const DIFF: Record<Difficulty, { label: string }> = {
+  noob:   { label: "Noob" },
+  pro:    { label: "Pro" },
+  expert: { label: "Expert" },
+};
+
+// ===== Plinko config =====
+const PLINKO_ROWS = 10; // Full triangle: row 0 has 1 peg
+const PEG_SPACING = 38; // px between pegs
+const ROW_HEIGHT = 44;  // px per row
+
+// Build plinko multiplier table based on difficulty
+const getPlinkoMults = (diff: Difficulty): number[] => {
+  if (diff === "noob")   return [1000, 130, 26, 9, 4, 2, 4, 9, 26, 130, 1000];
+  if (diff === "pro")    return [500,  50, 10, 4, 2, 0.5, 2, 4, 10, 50, 500];
+  return [1000, 100, 25, 5, 1, 0.3, 1, 5, 25, 100, 1000];
+};
 
 export default function GamePage() {
   const { id } = useParams();
   const gameType = typeof id === "string" ? id : "crash";
-  const gameName = gameType.charAt(0).toUpperCase() + gameType.slice(1);
   const { balance, bet, win } = useEconomy();
-  
-  const [betAmount, setBetAmount] = useState(1000000);
-  const [isPlaying, setIsPlaying] = useState(false);
-  
-  const [dialogState, setDialogState] = useState<{ isOpen: boolean, won: boolean, amount?: number, message: string }>({
-    isOpen: false, won: false, message: ""
-  });
 
-  // ========== CRASH STATE ==========
+  // ===== Shared state =====
+  const [betInput, setBetInput] = useState("1000");
+  const [difficulty, setDifficulty] = useState<Difficulty>("noob");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const betAmount = parseBet(betInput);
+
+  // ===== Result popup =====
+  const [popup, setPopup] = useState<{ won: boolean; amount: number; message: string } | null>(null);
+  const showPopup = (won: boolean, amount: number, message: string) => setPopup({ won, amount, message });
+
+  // ===== CRASH =====
   const [crashMult, setCrashMult] = useState(1.00);
   const [hasCrashed, setHasCrashed] = useState(false);
   const crashIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const crashTargetRef = useRef(1.00);
 
-  // ========== MINES STATE ==========
-  const [grid, setGrid] = useState<boolean[]>(Array(25).fill(false)); // true = bomb
+  // ===== MINES =====
+  const [grid, setGrid] = useState<boolean[]>(Array(25).fill(false));
   const [revealed, setRevealed] = useState<boolean[]>(Array(25).fill(false));
   const [minesCashout, setMinesCashout] = useState(1.00);
-  const [minesCount, setMinesCount] = useState(3);
+  const mineCount = difficulty === "noob" ? 3 : difficulty === "pro" ? 7 : 15;
 
-  // ========== DICE STATE ==========
-  const [winChance, setWinChance] = useState(50); // 1-99%
+  // ===== DICE =====
+  const [winChance, setWinChance] = useState(50);
   const [diceRoll, setDiceRoll] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
 
-  // ========== PLINKO STATE ==========
-  // Each drop tracks current animated row + cumulative X offset
-  const [plinkoDrops, setPlinkoDrops] = useState<{ id: number; row: number; x: number; path: number[]; multiplier: number }[]>([]);
-  const plinkoMultipliers = [21, 5.4, 2.1, 0.5, 0.4, 0.4, 0.5, 2.1, 5.4, 21];
-  const PLINKO_ROWS = 9;
-  const PEG_SPACING_X = 36; // px between pegs horizontally
-  const PEG_SPACING_Y = 46; // px between rows
+  // ===== PLINKO =====
+  const [plinkoBall, setPlinkoBall] = useState<{ row: number; x: number; path: number[]; tilt: number } | null>(null);
+  const [plinkoBallActive, setPlinkoBallActive] = useState(false);
+  const plinkoMults = getPlinkoMults(difficulty);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (crashIntervalRef.current) clearInterval(crashIntervalRef.current);
-    };
-  }, []);
+  useEffect(() => () => { if (crashIntervalRef.current) clearInterval(crashIntervalRef.current); }, []);
 
-  const openDialog = (won: boolean, amount: number, msg: string) => {
-    setDialogState({ isOpen: true, won, amount, message: msg });
-  };
-
+  // ===== Crash logic =====
   const startCrash = () => {
-    setCrashMult(1.00);
-    setHasCrashed(false);
-    setIsPlaying(true);
-    
-    // Generate crash point (1.00 - ~X)
-    // House edge implementation
-    const e = 100;
-    const h = Math.random() * 100;
-    const crashPoint = h === 0 ? 1.00 : (100 / (100 - h));
-    crashTargetRef.current = Math.max(1.00, Math.floor(crashPoint * 100) / 100);
-
+    const h = Math.random() * 99;
+    const target = Math.max(1.01, parseFloat((100 / (100 - h)).toFixed(2)));
+    // Expert = lower average target
+    const adjustedTarget = difficulty === "noob" ? target * 1.5 : difficulty === "expert" ? target * 0.6 : target;
+    setCrashMult(1.00); setHasCrashed(false); setIsPlaying(true);
     let current = 1.00;
     crashIntervalRef.current = setInterval(() => {
-      current += 0.01 + (current * 0.005);
-      if (current >= crashTargetRef.current) {
-         current = crashTargetRef.current;
-         setCrashMult(current);
-         setHasCrashed(true);
-         setIsPlaying(false);
-         clearInterval(crashIntervalRef.current!);
-         openDialog(false, 0, `Crashed at ${current.toFixed(2)}x! You lost the bet.`);
-      } else {
-         setCrashMult(current);
-      }
-    }, 50);
+      current += 0.01 + current * 0.004;
+      if (current >= Math.max(1.01, adjustedTarget)) {
+        clearInterval(crashIntervalRef.current!);
+        setCrashMult(current); setHasCrashed(true); setIsPlaying(false);
+        showPopup(false, 0, `Crashed at ${current.toFixed(2)}x! You lost.`);
+      } else { setCrashMult(current); }
+    }, 60);
   };
 
   const cashoutCrash = () => {
-    if (!isPlaying || hasCrashed) return;
-    clearInterval(crashIntervalRef.current!);
-    setIsPlaying(false);
-    const wonAmt = Math.floor(betAmount * crashMult);
-    win(wonAmt);
-    openDialog(true, wonAmt, `Successfully cashed out at ${crashMult.toFixed(2)}x for ${wonAmt.toLocaleString()} Donuts!`);
+    if (crashIntervalRef.current) clearInterval(crashIntervalRef.current);
+    const payout = Math.floor(betAmount * crashMult);
+    win(payout); setIsPlaying(false);
+    showPopup(true, payout, `Cashed out at ${crashMult.toFixed(2)}x!`);
   };
 
+  // ===== Mines logic =====
   const startMines = () => {
-    setIsPlaying(true);
-    setRevealed(Array(25).fill(false));
-    setMinesCashout(1.00);
-    // Plant bombs
-    const newGrid = Array(25).fill(false);
-    let planted = 0;
-    while (planted < minesCount) {
-       const idx = Math.floor(Math.random() * 25);
-       if (!newGrid[idx]) {
-          newGrid[idx] = true;
-          planted++;
-       }
+    const g = Array(25).fill(false);
+    let placed = 0;
+    while (placed < mineCount) {
+      const idx = Math.floor(Math.random() * 25);
+      if (!g[idx]) { g[idx] = true; placed++; }
     }
-    setGrid(newGrid);
+    setGrid(g); setRevealed(Array(25).fill(false)); setMinesCashout(1.00); setIsPlaying(true);
   };
 
-  const clickMine = (index: number) => {
-    if (!isPlaying) return;
-    if (revealed[index]) return;
-
-    const newRev = [...revealed];
-    newRev[index] = true;
-    setRevealed(newRev);
-
-    if (grid[index]) {
-       // Bomb
-       setIsPlaying(false);
-       // Reveal all
-       setRevealed(Array(25).fill(true));
-       openDialog(false, 0, `BOOM! You hit a mine and lost.`);
+  const clickMine = (idx: number) => {
+    if (!isPlaying || revealed[idx]) return;
+    const newRev = [...revealed]; newRev[idx] = true; setRevealed(newRev);
+    if (grid[idx]) {
+      setIsPlaying(false);
+      showPopup(false, 0, "BOOM! You hit a mine.");
+      setRevealed(Array(25).fill(true));
     } else {
-       // Gem
-       const safeRemaining = 25 - minesCount - newRev.filter((r, i) => r && !grid[i]).length;
-       const newMult = minesCashout + (0.05 * minesCount);
-       setMinesCashout(newMult);
-       if (safeRemaining === 0) {
-          // Cleared all
-          setIsPlaying(false);
-          setRevealed(Array(25).fill(true));
-          const w = Math.floor(betAmount * newMult);
-          win(w);
-          openDialog(true, w, `You cleared the board and won ${w.toLocaleString()} Donuts!`);
-       }
+      const safe = newRev.filter(Boolean).length;
+      const mult = parseFloat((1 + safe * (mineCount / 20)).toFixed(2));
+      setMinesCashout(mult);
     }
   };
 
   const cashoutMines = () => {
-    if (!isPlaying) return;
-    setIsPlaying(false);
-    setRevealed(Array(25).fill(true)); // Reveal remaining
-    const w = Math.floor(betAmount * minesCashout);
-    win(w);
-    openDialog(true, w, `Safe Play. Cashed out at ${minesCashout.toFixed(2)}x for ${w.toLocaleString()} Donuts!`);
+    const payout = Math.floor(betAmount * minesCashout);
+    win(payout); setIsPlaying(false);
+    showPopup(true, payout, `Cashed out at ${minesCashout.toFixed(2)}x!`);
   };
 
+  // ===== Dice logic =====
   const startDice = () => {
-    setIsPlaying(true);
-    setIsRolling(true);
-    setDiceRoll(null);
-
-    // Roll animation
+    setIsPlaying(true); setIsRolling(true); setDiceRoll(null);
+    // Noob: shifted win chance; Expert: harder
+    const effectiveChance = difficulty === "noob" ? Math.min(95, winChance * 1.15) : difficulty === "expert" ? winChance * 0.8 : winChance;
     let ticks = 0;
-    const interval = setInterval(() => {
+    const iv = setInterval(() => {
       setDiceRoll(Math.floor(Math.random() * 100) + 1);
-      ticks++;
-      if (ticks > 15) {
-        clearInterval(interval);
-        const finalRoll = Math.floor(Math.random() * 100) + 1;
-        setDiceRoll(finalRoll);
-        setIsRolling(false);
-        setIsPlaying(false);
-
-        if (finalRoll <= winChance) {
-          const mult = 99 / winChance;
-          const w = Math.floor(betAmount * mult);
-          win(w);
-          openDialog(true, w, `Rolled a ${finalRoll}! You won ${w.toLocaleString()} Donuts!`);
-        } else {
-          openDialog(false, 0, `Rolled a ${finalRoll}. Over the target. You lost.`);
-        }
+      if (++ticks > 15) {
+        clearInterval(iv);
+        const roll = Math.floor(Math.random() * 100) + 1;
+        setDiceRoll(roll); setIsRolling(false); setIsPlaying(false);
+        if (roll <= effectiveChance) {
+          const payout = Math.floor(betAmount * (99 / winChance));
+          win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`);
+        } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); }
       }
     }, 50);
   };
 
+  // ===== Plinko logic =====
   const startPlinko = () => {
-     // Pre-compute full path
-     const path: number[] = [];
-     let finalPos = 0;
-     for (let i = 0; i < PLINKO_ROWS; i++) {
-        const dir = Math.random() > 0.5 ? 1 : 0;
-        path.push(dir);
-        finalPos += dir;
-     }
+    if (plinkoBallActive) return; // only 1 at a time
+    if (!bet(betAmount)) return;
+    setPlinkoBallActive(true);
 
-     const mult = plinkoMultipliers[Math.min(finalPos, plinkoMultipliers.length - 1)];
-     const dropId = Date.now() + Math.random();
+    // Compute full path (from row 0 → PLINKO_ROWS)
+    const path: number[] = [];
+    let finalPos = 0;
+    for (let r = 0; r < PLINKO_ROWS; r++) {
+      const dir = Math.random() > 0.5 ? 1 : 0;
+      path.push(dir);
+      finalPos += dir;
+    }
+    // Clamp to valid multiplier index
+    const multIdx = Math.min(finalPos, plinkoMults.length - 1);
+    const mult = plinkoMults[multIdx];
 
-     // Start drop with row=0, x=0
-     setPlinkoDrops(prev => [...prev, { id: dropId, row: 0, x: 0, path, multiplier: mult }]);
+    // Animate step by step
+    let currentRow = 0;
+    let currentX = 0;
+    setPlinkoBall({ row: 0, x: 0, path, tilt: 0 });
 
-     // Step ball row by row
-     let currentRow = 0;
-     let currentX = 0;
-     const stepInterval = setInterval(() => {
-        currentRow++;
-        if (currentRow <= PLINKO_ROWS) {
-           const dir = path[currentRow - 1]; // 0 = left, 1 = right
-           currentX += dir === 1 ? PEG_SPACING_X / 2 : -PEG_SPACING_X / 2;
-           setPlinkoDrops(prev => prev.map(d =>
-              d.id === dropId ? { ...d, row: currentRow, x: currentX } : d
-           ));
-        } else {
-           clearInterval(stepInterval);
-           // Resolve bet
-           const amt = Math.floor(betAmount * mult);
-           win(amt);
-           if (mult >= 1) openDialog(mult >= 2, amt, mult >= 2 ? `Plinko! Won $${amt.toLocaleString()}` : `Landed on ${mult}x. Got $${amt.toLocaleString()}`);
-           setTimeout(() => {
-              setPlinkoDrops(prev => prev.filter(d => d.id !== dropId));
-           }, 600);
-        }
-     }, 200); // 200ms per row = ~1.8s total
+    const stepIv = setInterval(() => {
+      currentRow++;
+      if (currentRow <= PLINKO_ROWS) {
+        const moveRight = path[currentRow - 1] === 1;
+        currentX += moveRight ? PEG_SPACING / 2 : -PEG_SPACING / 2;
+        setPlinkoBall({ row: currentRow, x: currentX, path, tilt: moveRight ? 10 : -10 });
+      } else {
+        clearInterval(stepIv);
+        const payout = Math.floor(betAmount * mult);
+        win(payout);
+        setTimeout(() => {
+          setPlinkoBall(null);
+          setPlinkoBallActive(false);
+          showPopup(mult > 1, payout, `Landed on ${mult}x → ${formatMoney(payout)}`);
+        }, 400);
+      }
+    }, 120);
   };
 
   const handleAction = () => {
+    if (betAmount < 1000) { showPopup(false, 0, "Minimum bet is $1,000!"); return; }
     if (isPlaying) {
-       // If game is playing, action depends on game
-       if (gameType === "crash") cashoutCrash();
-       if (gameType === "mines") cashoutMines();
-       return;
+      if (gameType === "crash") cashoutCrash();
+      if (gameType === "mines") cashoutMines();
+      return;
     }
-
-    if (!bet(betAmount)) {
-       openDialog(false, 0, "Insufficient Balance! Minimum 1M Donuts required.");
-       return;
-    }
-
+    if (gameType === "plinko") { startPlinko(); return; }
+    if (!bet(betAmount)) { showPopup(false, 0, "Insufficient balance!"); return; }
     if (gameType === "crash") startCrash();
     else if (gameType === "mines") startMines();
     else if (gameType === "dice") startDice();
-    else if (gameType === "plinko") startPlinko();
-    else {
-      // Fallback
-      startDice();
-    }
   };
 
-  return (
-    <div className="flex flex-col h-full animate-in fade-in duration-500">
-      
-      {/* Result Dialog */}
-      <AlertDialog.Backdrop isOpen={dialogState.isOpen} onOpenChange={(open) => setDialogState(prev => ({...prev, isOpen: open}))} variant="blur">
-        <AlertDialog.Container>
-          <AlertDialog.Dialog className="sm:max-w-[400px]">
-            <AlertDialog.CloseTrigger />
-            <AlertDialog.Header>
-              <AlertDialog.Icon status={dialogState.won ? "success" : "danger"} />
-              <AlertDialog.Heading>{dialogState.won ? "Winner!" : "Bust"}</AlertDialog.Heading>
-            </AlertDialog.Header>
-            <AlertDialog.Body>
-              <p className="text-muted leading-relaxed font-bold">
-                {dialogState.message}
-              </p>
-            </AlertDialog.Body>
-            <AlertDialog.Footer>
-              <Button slot="close" variant={dialogState.won ? "primary" : "secondary"}>
-                Continue
-              </Button>
-            </AlertDialog.Footer>
-          </AlertDialog.Dialog>
-        </AlertDialog.Container>
-      </AlertDialog.Backdrop>
+  // Canvas height computation
+  const PLINKO_H = PLINKO_ROWS * ROW_HEIGHT + 80;
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-8 h-20 border-b border-white/5 bg-black/20 shrink-0">
-        <div className="flex items-center gap-6">
-          <Link href="/">
-             <Button isIconOnly variant="ghost" className="border-white/10 text-muted hover:text-primary transition-colors border shadow-none rounded-xl">
-               <ChevronLeft size={20} />
-             </Button>
-          </Link>
-          <div className="flex flex-col">
-             <h1 className="text-xl font-black uppercase tracking-tighter italic">{gameName}</h1>
-             <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Live Economy</span>
-             </div>
+  return (
+    <div className="flex h-full animate-in fade-in duration-500 relative">
+
+      {/* ===== Result Popup ===== */}
+      {popup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
+          <div className={`pointer-events-auto relative p-8 rounded-3xl border text-center animate-in zoom-in-90 duration-300 shadow-2xl max-w-sm mx-4 ${popup.won ? "bg-[#0c1f0f] border-success/30" : "bg-[#1f0c0c] border-danger/30"}`}>
+            <button onClick={() => setPopup(null)} className="absolute top-3 right-3 text-white/30 hover:text-white">
+              <X size={18} />
+            </button>
+            <p className={`text-5xl font-black italic mb-2 ${popup.won ? "text-success" : "text-danger"}`}>
+              {popup.won ? "WIN!" : "LOSS"}
+            </p>
+            <p className="text-white/50 text-sm font-bold mb-3">{popup.message}</p>
+            {popup.won && (
+              <p className="text-success font-black text-2xl">+{formatMoney(popup.amount)}</p>
+            )}
+            <Button onClick={() => setPopup(null)} className={`mt-4 h-10 px-8 rounded-2xl font-black text-sm ${popup.won ? "bg-success text-black" : "bg-danger text-white"}`}>
+              {popup.won ? "Collect!" : "Try Again"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Betting Panel ===== */}
+      <aside className="w-64 flex-shrink-0 border-r border-white/5 bg-black/40 p-5 flex flex-col gap-4 overflow-y-auto">
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5 block">Bet Amount</label>
+          <input
+            value={betInput}
+            onChange={e => setBetInput(e.target.value)}
+            disabled={isPlaying || plinkoBallActive}
+            placeholder="1K / 1M / 1B / 1T"
+            className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-3 text-white font-bold text-sm focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
+          />
+          <div className="grid grid-cols-5 gap-1 mt-1.5">
+            {[["1K",1000],["10K",10000],["1M",1000000],["1B",1e9],["1T",1e12]].map(([l, v]) => (
+              <button key={l as string} onClick={() => !(isPlaying||plinkoBallActive) && setBetInput(String(v))} className="text-[9px] font-black py-1.5 rounded-lg bg-white/5 text-white/30 hover:bg-primary/20 hover:text-primary transition-colors border border-white/5">{l as string}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1 mt-1">
+            <button onClick={() => !(isPlaying||plinkoBallActive) && setBetInput(String(Math.max(1000, Math.floor(parseBet(betInput)/2))))} className="text-[9px] font-black py-1.5 rounded-lg bg-white/5 text-white/30 hover:text-white transition-colors border border-white/5">½</button>
+            <button onClick={() => !(isPlaying||plinkoBallActive) && setBetInput(String(parseBet(betInput)*2))} className="text-[9px] font-black py-1.5 rounded-lg bg-white/5 text-white/30 hover:text-white transition-colors border border-white/5">2x</button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/5">
-           <Wallet size={16} className="text-primary" />
-           <span className="text-sm font-black text-white">{(balance / 1000000).toFixed(2)}M</span>
+        {/* Difficulty */}
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5 block">Difficulty</label>
+          <div className="flex gap-1.5">
+            {(["noob","pro","expert"] as Difficulty[]).map(d => (
+              <button key={d} disabled={isPlaying || plinkoBallActive} onClick={() => setDifficulty(d)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-40 ${difficulty === d ? "bg-primary/15 text-primary border border-primary/25" : "bg-white/5 text-white/30 border border-white/5 hover:text-white"}`}>
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-1 overflow-hidden h-full">
-        {/* Betting Panel */}
-        <aside className="w-[340px] border-r border-white/5 bg-secondary/10 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto">
-           <div className="space-y-4">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Bet Amount (Donuts)</label>
-               <div className="relative">
-                 <Input 
-                   type="number" 
-                   value={betAmount.toString()} 
-                   onChange={(e) => setBetAmount(Number(e.target.value))}
-                   className="w-full bg-black/40 h-14"
-                   disabled={isPlaying}
-                 />
-                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1.5 z-10">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => setBetAmount(prev => Math.floor(prev / 2))}
-                      isDisabled={isPlaying}
-                      className="h-9 min-w-[44px] bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black rounded-lg text-white"
-                    >1/2</Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => setBetAmount(prev => prev * 2)}
-                      isDisabled={isPlaying}
-                      className="h-9 min-w-[44px] bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black rounded-lg text-white"
-                    >2x</Button>
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                 <Button isDisabled={isPlaying} onClick={() => setBetAmount(1000)} size="sm" variant="ghost" className="bg-white/5 border border-white/5 text-[10px] font-black text-white transition-colors hover:bg-white/10">MIN (1K)</Button>
-                 <Button isDisabled={isPlaying} onClick={() => setBetAmount(1000000000)} size="sm" variant="ghost" className="bg-white/5 border border-white/5 text-[10px] font-black text-white transition-colors hover:bg-white/10">MAX (1B)</Button>
-              </div>
-           </div>
+        {/* Game-specific settings */}
+        {gameType === "mines" && !isPlaying && (
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1 block">
+              Mines: {mineCount} ({difficulty})
+            </label>
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-danger/60 rounded-full" style={{ width: `${(mineCount / 24) * 100}%` }} />
+            </div>
+          </div>
+        )}
 
-           {gameType === "mines" && !isPlaying && (
-              <div className="space-y-4">
-                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Mine Count</label>
-                 <Input type="number" min={1} max={24} value={minesCount.toString()} onChange={(e) => setMinesCount(Number(e.target.value))} className="w-full bg-black/40 h-14" />
-              </div>
-           )}
+        {gameType === "dice" && !isPlaying && (
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5 block">Win Chance: {winChance}%</label>
+            <Slider value={winChance} onChange={v => setWinChance(v as number)} minValue={1} maxValue={95} step={1} className="w-full" />
+            <p className="text-[10px] text-right text-white/30 font-bold mt-1">Payout: {(99/winChance).toFixed(2)}x</p>
+          </div>
+        )}
 
-           {gameType === "dice" && !isPlaying && (
-              <div className="space-y-4">
-                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Win Chance: {winChance}%</label>
-                 <Slider
-                   value={winChance}
-                   onChange={(val) => setWinChance(val as number)}
-                   minValue={1}
-                   maxValue={95}
-                   step={1}
-                   className="w-full"
-                 />
-                 <p className="text-xs text-muted text-right font-bold tracking-widest">Multiplier: {(99/winChance).toFixed(2)}x</p>
-              </div>
-           )}
+        {gameType === "mines" && isPlaying && (
+          <div className="bg-success/10 border border-success/20 rounded-2xl p-3">
+            <p className="text-[10px] text-success/60 font-black uppercase tracking-widest">Current Cashout</p>
+            <p className="text-xl font-black text-success">{formatMoney(Math.floor(betAmount * minesCashout))}</p>
+            <p className="text-[10px] text-white/25 font-bold">{minesCashout.toFixed(2)}x</p>
+          </div>
+        )}
 
-           <div className="flex-1" />
+        {gameType === "crash" && isPlaying && (
+          <div className="bg-primary/10 border border-primary/20 rounded-2xl p-3">
+            <p className="text-[10px] text-primary/60 font-black uppercase tracking-widest">Flying at</p>
+            <p className="text-xl font-black text-primary">{crashMult.toFixed(2)}x</p>
+            <p className="text-[10px] text-white/25 font-bold">Cashout: {formatMoney(Math.floor(betAmount * crashMult))}</p>
+          </div>
+        )}
 
-           <Button 
-             onClick={handleAction}
-             isDisabled={isRolling}
-             className={`w-full h-20 font-black text-2xl rounded-[28px] transition-all duration-300 shadow-2xl ${
-               isPlaying 
-                 ? "bg-success text-black shadow-success/20 hover:scale-[1.03] animate-pulse" 
-                 : "bg-primary text-black shadow-primary/20 hover:scale-[1.03]"
-             }`}
-           >
-             {isPlaying ? `CASH OUT (${gameType === 'crash' ? crashMult.toFixed(2) : gameType === 'mines' ? minesCashout.toFixed(2) : ''}x)` : "START BET"}
-           </Button>
-        </aside>
+        <Button
+          onClick={handleAction}
+          isDisabled={isRolling || plinkoBallActive || betAmount < 1000}
+          className={`w-full h-14 font-black text-lg rounded-2xl transition-all duration-300 shadow-2xl mt-auto ${
+            isPlaying ? "bg-success text-black shadow-success/20 hover:scale-[1.02] animate-pulse" : "bg-primary text-black shadow-primary/20 hover:scale-[1.02]"
+          }`}
+        >
+          {isRolling ? "ROLLING..." : plinkoBallActive ? "BALL IN AIR..." : isPlaying ? (gameType === "crash" ? `CASH OUT ${crashMult.toFixed(2)}x` : gameType === "mines" ? `CASH OUT ${minesCashout.toFixed(2)}x` : "IN PLAY") : "PLACE BET"}
+        </Button>
+      </aside>
 
-        {/* Game Canvas */}
-        <main className="flex-1 relative bg-black/30 flex items-center justify-center p-12 overflow-hidden">
-           
-           {/* CRASH CANVAS */}
-           {gameType === "crash" && (
-             <div className={`w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed ${isPlaying ? "border-primary/50 bg-primary/5 shadow-[0_0_60px_rgba(59,130,246,0.1)]" : hasCrashed ? "border-danger/30 bg-danger/5" : "border-white/5 bg-black/10"} flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700`}>
-                <div className={`absolute inset-0 bg-primary/20 blur-[100px] rounded-full scale-[2] transition-all duration-1000 ${isPlaying ? "opacity-100 animate-spin" : "opacity-0"}`} />
-                <div className="text-center relative z-10 transition-all duration-300">
-                   <h2 className={`text-8xl font-black tracking-tighter italic ${hasCrashed ? "text-danger" : "text-white"}`}>
-                     {crashMult.toFixed(2)}x
-                   </h2>
-                   <p className="text-muted font-bold tracking-widest uppercase text-sm mt-4">
-                     {hasCrashed ? "CRASHED!" : isPlaying ? "FLYING..." : "WAITING"}
-                   </p>
-                </div>
-                
-                {isPlaying && (
-                  <div className="absolute bottom-10 left-10 text-primary">
-                    <Zap size={32} className="animate-bounce" fill="currentColor" />
+      {/* ===== Game Canvas ===== */}
+      <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden">
+
+        {/* CRASH */}
+        {gameType === "crash" && (
+          <div className={`w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700 ${isPlaying ? "border-primary/50 bg-primary/5" : hasCrashed ? "border-danger/30 bg-danger/5" : "border-white/5 bg-black/10"}`}>
+            <div className={`absolute inset-0 bg-primary/15 blur-[100px] rounded-full scale-[2] transition-all duration-1000 ${isPlaying ? "opacity-100" : "opacity-0"}`} />
+            <div className="text-center relative z-10">
+              <h2 className={`text-9xl font-black tracking-tighter italic ${hasCrashed ? "text-danger" : "text-white"}`} style={{ fontFamily: "'Space Mono', monospace" }}>
+                {crashMult.toFixed(2)}x
+              </h2>
+              {isPlaying && <span className="text-8xl rocket-fly inline-block mt-4">🚀</span>}
+              <p className="text-muted font-bold tracking-widest uppercase text-sm mt-4">
+                {hasCrashed ? "CRASHED!" : isPlaying ? "FLYING..." : "READY"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* MINES */}
+        {gameType === "mines" && (
+          <div className="w-full max-w-xl aspect-square bg-black/40 rounded-[35px] border border-white/5 p-5 shadow-2xl grid grid-cols-5 gap-2.5">
+            {grid.map((isBomb, idx) => {
+              const isRev = revealed[idx];
+              return (
+                <Button
+                  key={idx}
+                  isDisabled={!isPlaying || isRev}
+                  onClick={() => clickMine(idx)}
+                  className={`w-full h-full min-h-[54px] rounded-2xl transition-all duration-200 shadow-inner border-none ${
+                    isRev ? (isBomb ? "bg-danger scale-95 shadow-danger/40" : "bg-success scale-95 shadow-success/40") : "bg-white/5 hover:bg-white/10 hover:scale-[0.97]"
+                  }`}
+                >
+                  {isRev && isBomb && <Bomb size={24} />}
+                  {isRev && !isBomb && <Gem size={24} fill="currentColor" />}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* DICE */}
+        {gameType === "dice" && (
+          <div className={`w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700 ${isRolling ? "border-primary/50 bg-primary/5" : "border-white/5 bg-black/10"}`}>
+            <div className={`absolute inset-0 bg-primary/15 blur-[100px] scale-[2] transition-all duration-1000 ${isRolling ? "opacity-100" : "opacity-0"}`} />
+            <div className="text-center relative z-10">
+              {diceRoll === null ? (
+                <Dice5 size={120} className="text-white/10" />
+              ) : (
+                <h2 className={`text-9xl font-black italic ${!isRolling && diceRoll <= winChance ? "text-success" : !isRolling ? "text-danger" : "text-white"}`} style={{ fontFamily: "'Space Mono', monospace" }}>
+                  {diceRoll}
+                </h2>
+              )}
+              <p className="text-white/30 font-bold tracking-widest uppercase text-sm mt-8">
+                {isRolling ? "ROLLING..." : `WIN UNDER ${winChance}`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* PLINKO */}
+        {gameType === "plinko" && (
+          <div className="flex flex-col items-center">
+            <div
+              className="relative bg-black/40 rounded-[30px] border border-white/5 shadow-2xl overflow-hidden"
+              style={{ width: `${(PLINKO_ROWS + 2) * PEG_SPACING + 60}px`, height: `${PLINKO_H}px` }}
+            >
+              {/* Full triangle pegs: row r has (r+1) pegs */}
+              {Array.from({ length: PLINKO_ROWS }).map((_, r) => {
+                const numPegs = r + 1;
+                const totalWidth = numPegs * PEG_SPACING;
+                return (
+                  <div key={r} className="absolute left-1/2 flex" style={{ top: r * ROW_HEIGHT + 26, transform: `translateX(-${totalWidth / 2 - PEG_SPACING / 2}px)`, gap: `${PEG_SPACING - 8}px` }}>
+                    {Array.from({ length: numPegs }).map((_, c) => (
+                      <div key={c} className="w-2.5 h-2.5 rounded-full bg-white/35 shadow-[0_0_6px_rgba(255,255,255,0.2)] shrink-0" />
+                    ))}
                   </div>
-                )}
-             </div>
-           )}
+                );
+              })}
 
-           {/* MINES CANVAS */}
-           {gameType === "mines" && (
-             <div className="w-full max-w-xl aspect-square bg-black/40 rounded-[35px] border border-white/5 p-6 shadow-2xl grid grid-cols-5 gap-3">
-               {grid.map((isBomb, idx) => {
-                 const isRev = revealed[idx];
-                 return (
-                   <Button 
-                     key={idx}
-                     isDisabled={!isPlaying || isRev}
-                     onClick={() => clickMine(idx)}
-                     className={`w-full h-full min-h-[60px] rounded-2xl transition-all duration-300 shadow-inner ${
-                       isRev 
-                         ? (isBomb ? "bg-danger text-black scale-95 border-none shadow-danger/50" : "bg-success text-black scale-95 border-none shadow-success/50")
-                         : "bg-surface-secondary border border-white/10 hover:bg-white/10 hover:border-white/20"
-                     }`}
-                   >
-                     {isRev && isBomb && <Bomb size={28} />}
-                     {isRev && !isBomb && <Gem size={28} fill="currentColor" />}
-                   </Button>
-                 )
-               })}
-             </div>
-           )}
-
-           {/* DICE CANVAS */}
-           {gameType === "dice" && (
-             <div className={`w-full max-w-3xl aspect-[16/10] rounded-[40px] border-2 border-dashed ${isRolling ? "border-primary/50 bg-primary/5 shadow-[0_0_60px_rgba(59,130,246,0.1)]" : "border-white/5 bg-black/10"} flex flex-col items-center justify-center relative overflow-hidden transition-all duration-700`}>
-                <div className={`absolute inset-0 bg-primary/20 blur-[100px] rounded-full scale-[2] transition-all duration-1000 ${isRolling ? "opacity-100 animate-spin" : "opacity-0"}`} />
-                <div className="text-center relative z-10">
-                   {diceRoll === null ? (
-                     <Dice5 size={120} className="text-muted opacity-20" />
-                   ) : (
-                     <h2 className={`text-9xl font-black tracking-tighter italic ${!isRolling && diceRoll <= winChance ? "text-success" : !isRolling ? "text-danger" : "text-white"}`}>
-                       {diceRoll}
-                     </h2>
-                   )}
-                   <p className="text-muted font-bold tracking-widest uppercase text-sm mt-8">
-                     {isRolling ? "ROLLING..." : "ROLL THE DICE"}
-                   </p>
+              {/* Ball */}
+              {plinkoBall && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top:  plinkoBall.row * ROW_HEIGHT + 12,
+                    left: "50%",
+                    transform: `translateX(calc(-50% + ${plinkoBall.x}px)) rotate(${plinkoBall.tilt}deg)`,
+                    transition: "top 0.12s cubic-bezier(0.22,1,0.36,1), transform 0.12s cubic-bezier(0.22,1,0.36,1)",
+                    width: 28, height: 28,
+                    zIndex: 10,
+                  }}
+                >
+                  <img src="/donutsmp.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
                 </div>
-             </div>
-           )}
+              )}
 
-           {/* PLINKO CANVAS */}
-           {gameType === "plinko" && (
-             <div className="w-full max-w-2xl bg-black/40 rounded-[35px] border border-white/5 shadow-2xl relative overflow-hidden flex flex-col" style={{ height: `${PLINKO_ROWS * PEG_SPACING_Y + 80}px` }}>
-                <div className="flex-1 relative w-full">
-                   {/* Pegs */}
-                   {Array.from({length: PLINKO_ROWS}).map((_, rowIndex) => {
-                     const cols = rowIndex + 3;
-                     return (
-                        <div key={rowIndex} className="absolute w-full flex justify-center" style={{ top: `${rowIndex * PEG_SPACING_Y + 20}px`, gap: `${PEG_SPACING_X - 4}px` }}>
-                           {Array.from({length: cols}).map((_, colIndex) => (
-                              <div key={colIndex} className="w-2.5 h-2.5 rounded-full bg-white/30 shadow-[0_0_8px_rgba(255,255,255,0.15)] shrink-0" />
-                           ))}
-                        </div>
-                     )
-                   })}
+              {/* Multiplier buckets */}
+              <div className="absolute bottom-0 left-0 right-0 flex h-11 border-t border-white/5">
+                {plinkoMults.map((m, i) => (
+                  <div key={i} className={`flex-1 flex items-center justify-center text-[9px] font-black border-r border-black/50 last:border-0 ${m >= 100 ? "bg-warning/25 text-warning" : m >= 10 ? "bg-success/20 text-success" : m >= 2 ? "bg-primary/15 text-primary" : m >= 1 ? "bg-white/5 text-white/50" : "bg-danger/15 text-danger"}`}>
+                    {m}x
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                   {/* Balls — step-by-step position */}
-                   {plinkoDrops.map(drop => (
-                      <div 
-                        key={drop.id} 
-                        className="absolute w-7 h-7"
-                        style={{
-                           top: `${drop.row * PEG_SPACING_Y + 4}px`,
-                           left: "50%",
-                           transform: `translateX(calc(-50% + ${drop.x}px))`,
-                           transition: "top 0.18s ease-in, transform 0.18s ease-in-out",
-                           zIndex: 10,
-                        }}
-                      >
-                         <img src="/donutsmp.png" alt="ball" className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(59,130,246,0.7)]" />
-                      </div>
-                   ))}
-                </div>
+            {plinkoBallActive && (
+              <p className="text-primary font-black text-sm animate-pulse mt-4 uppercase tracking-widest">Ball in play — wait for it...</p>
+            )}
+          </div>
+        )}
 
-                {/* Multiplier buckets */}
-                <div className="flex w-full h-11 bg-black/60 border-t border-white/5 rounded-b-[35px] overflow-hidden shrink-0">
-                   {plinkoMultipliers.map((m, i) => (
-                      <div key={i} className={`flex-1 flex justify-center items-center text-[9px] font-black border-r border-black/40 last:border-0 ${m >= 5 ? "bg-warning/20 text-warning" : m >= 2 ? "bg-success/20 text-success" : m >= 1 ? "bg-primary/15 text-primary" : "bg-danger/15 text-danger"}`}>
-                        {m}x
-                      </div>
-                   ))}
-                </div>
-             </div>
-           )}
-        </main>
-      </div>
+        {/* Unsupported game fallback */}
+        {!["crash","mines","dice","plinko"].includes(gameType) && (
+          <p className="text-white/30 font-bold uppercase tracking-widest">Game not found</p>
+        )}
+      </main>
     </div>
   );
 }
