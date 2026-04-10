@@ -6,11 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bot:minecraft-verify": "node scripts/bedrock-verifier-bot.mjs"
   },
   "dependencies": {
     "@heroui/react": "^3.0.2",
     "@supabase/supabase-js": "^2.103.0",
+    "bedrock-protocol": "^3.55.0",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^17.4.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",

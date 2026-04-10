@@ -1,24 +1,100 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 import { Play, ShieldCheck, X, Sword } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+const WEB_USER_ID_KEY = "donutboost_web_user_id";
+const BOT_NAME = process.env.NEXT_PUBLIC_MC_VERIFY_BOT_NAME || "DonutVerifyBot";
+
+const createWebUserId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `web-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+};
 
 export default function LandingPage() {
   const router = useRouter();
   const [loginOpen, setLoginOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [webUserId, setWebUserId] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [verifyStatus, setVerifyStatus] = useState<"idle" | "pending" | "verified" | "expired" | "error">("idle");
+  const [statusMessage, setStatusMessage] = useState("");
 
-  const handleVerify = () => {
-    if (!username.trim() || isVerifying) return;
+  useEffect(() => {
+    const existing = localStorage.getItem(WEB_USER_ID_KEY);
+    if (existing) {
+      setWebUserId(existing);
+      return;
+    }
+    const created = createWebUserId();
+    localStorage.setItem(WEB_USER_ID_KEY, created);
+    setWebUserId(created);
+  }, []);
+
+  useEffect(() => {
+    if (!loginOpen || verifyStatus !== "pending" || !webUserId) return;
+    const iv = window.setInterval(async () => {
+      try {
+        const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(webUserId)}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "verified") {
+          setVerifyStatus("verified");
+          setStatusMessage(`Linked to Minecraft account ${data.minecraftUsername}. Redirecting...`);
+          window.clearInterval(iv);
+          window.setTimeout(() => {
+            setLoginOpen(false);
+            router.push("/home");
+          }, 900);
+        } else if (data.status === "expired") {
+          setVerifyStatus("expired");
+          setStatusMessage("Code expired. Request a new one.");
+          window.clearInterval(iv);
+        }
+      } catch {
+        // Keep polling quietly.
+      }
+    }, 3000);
+    return () => window.clearInterval(iv);
+  }, [loginOpen, verifyStatus, webUserId, router]);
+
+  const expiresIn = useMemo(() => {
+    if (!expiresAt) return "";
+    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  }, [expiresAt]);
+
+  const handleVerify = async () => {
+    if (!username.trim() || isVerifying || !webUserId) return;
     setIsVerifying(true);
-    setTimeout(() => {
+    setStatusMessage("");
+    try {
+      const res = await fetch("/api/minecraft/request-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webUserId,
+          requestedUsername: username.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to request code.");
+      setVerifyCode(data.code);
+      setExpiresAt(data.expiresAt);
+      setVerifyStatus("pending");
+      setStatusMessage(`Code generated. Join DonutSMP.net and run /msg ${BOT_NAME} ${data.code}`);
+    } catch (error) {
+      setVerifyStatus("error");
+      setStatusMessage(error instanceof Error ? error.message : "Could not generate verification code.");
+    } finally {
       setIsVerifying(false);
-      setLoginOpen(false);
-      router.push("/home");
-    }, 1400);
+    }
   };
 
   return (
@@ -82,8 +158,25 @@ export default function LandingPage() {
                 isDisabled={!username.trim() || isVerifying}
                 className="w-full h-12 bg-primary text-black font-black text-sm rounded-2xl shadow-lg shadow-primary/20"
               >
-                {isVerifying ? "Verifying..." : "Verify and Continue"}
+                {isVerifying ? "Generating Code..." : "Generate Verification Code"}
               </Button>
+              {verifyCode && (
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/80 mb-1">Your Code</p>
+                  <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
+                  <p className="text-xs text-white/60 mt-2">
+                    In Minecraft: <span className="font-black text-white">/msg {BOT_NAME} {verifyCode}</span>
+                  </p>
+                  {verifyStatus === "pending" && (
+                    <p className="text-[11px] font-bold text-white/50 mt-1">Waiting for in-game whisper... expires in {expiresIn}</p>
+                  )}
+                </div>
+              )}
+              {statusMessage && (
+                <p className={`text-xs font-bold ${verifyStatus === "verified" ? "text-success" : verifyStatus === "error" ? "text-danger" : "text-white/60"}`}>
+                  {statusMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>
