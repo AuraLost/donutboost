@@ -39,11 +39,11 @@ Script path:
 MC_SERVER_HOST=DonutSMP.net
 MC_SERVER_PORT=19132
 MC_BOT_PROFILE=YourMicrosoftBotProfileName
-MC_VERIFY_BOT_NAME=YourInGameBotName
+MC_VERIFY_BOT_NAME=.LilHazMC
 # Optional:
 MC_VERIFY_DB_PATH=./data/minecraft-verification.db
 MC_PROFILES_FOLDER=./.minecraft-bot
-NEXT_PUBLIC_MC_VERIFY_BOT_NAME=YourInGameBotName
+NEXT_PUBLIC_MC_VERIFY_BOT_NAME=.LilHazMC
 ```
 
 `NEXT_PUBLIC_MC_VERIFY_BOT_NAME` is used by the website UI for instruction text.

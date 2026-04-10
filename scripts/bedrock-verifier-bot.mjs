@@ -135,7 +135,7 @@ function sendCommand(text) {
 }
 
 function sendWhisper(target, text) {
-  const safeTarget = String(target || "").replace(/[^A-Za-z0-9_]/g, "");
+  const safeTarget = String(target || "").replace(/[^A-Za-z0-9_.-]/g, "");
   if (!safeTarget) return;
   sendCommand(`/msg ${safeTarget} ${text}`);
 }
