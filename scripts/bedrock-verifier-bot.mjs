@@ -261,6 +261,19 @@ function attachHandlers(bot) {
     startConnectionWatchdog();
   });
 
+  bot.on("start_game", (packet) => {
+    if (packet?.runtime_entity_id !== undefined && packet?.runtime_entity_id !== null) {
+      runtimeEntityId = packet.runtime_entity_id;
+    }
+    if (packet?.player_position) {
+      currentPosition = {
+        x: Number(packet.player_position.x || 0),
+        y: Number(packet.player_position.y || 0),
+        z: Number(packet.player_position.z || 0),
+      };
+    }
+  });
+
   bot.on("move_player", (packet) => {
     if (!packet?.position) return;
     currentPosition = {
@@ -356,15 +369,3 @@ process.on("SIGINT", () => {
 });
 
 connect();
-  bot.on("start_game", (packet) => {
-    if (packet?.runtime_entity_id !== undefined && packet?.runtime_entity_id !== null) {
-      runtimeEntityId = packet.runtime_entity_id;
-    }
-    if (packet?.player_position) {
-      currentPosition = {
-        x: Number(packet.player_position.x || 0),
-        y: Number(packet.player_position.y || 0),
-        z: Number(packet.player_position.z || 0),
-      };
-    }
-  });
