@@ -163,7 +163,7 @@ export default function HomeDashboardPage() {
         {verifyStatus !== "verified" && (
           <div className="mt-4 space-y-3">
             <Button onClick={handleGenerateCode} isDisabled={isGeneratingCode || !userId} className="bg-primary text-black font-black">
-              {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
+              {isGeneratingCode ? "Starting..." : "Start Verification"}
             </Button>
             {(verifyStatus === "pending" || verifyStatus === "expired") && (
               <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">

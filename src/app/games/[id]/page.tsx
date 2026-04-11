@@ -319,7 +319,7 @@ export default function GamePage() {
           <div className="flex gap-1.5">
             {(["noob","pro","expert"] as Difficulty[]).map(d => (
               <button key={d} disabled={isPlaying || plinkoBallActive} onClick={() => setDifficulty(d)} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-40 ${difficulty === d ? "bg-primary/15 text-primary border border-primary/25" : "bg-white/5 text-white/30 border border-white/5 hover:text-white"}`}>
-                {d}
+                {d === "noob" ? "Noob (Easy)" : d === "pro" ? "Pro (Medium)" : "Expert (Hard)"}
               </button>
             ))}
           </div>

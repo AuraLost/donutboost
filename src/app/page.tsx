@@ -194,7 +194,7 @@ export default function LandingPage() {
             <p className="text-xs text-white/60 mt-1">Logged in as {user.username}. Complete this to unlock all games.</p>
 
             <Button onClick={generateVerificationCode} isDisabled={isGeneratingCode} className="mt-4 bg-primary text-black font-black w-full">
-              {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
+              {isGeneratingCode ? "Starting..." : "Start Verification"}
             </Button>
 
             {(verifyStatus === "pending" || verifyStatus === "expired") && (
