@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { createClient } from "@supabase/supabase-js";
 
 export type VerificationRow = {
   web_user_id: string;
@@ -16,8 +17,22 @@ export type VerificationRow = {
 };
 
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
+const TABLE = "minecraft_verifications";
 
 let dbInstance: Database.Database | null = null;
+let supabaseClient: ReturnType<typeof createClient> | null | undefined;
+
+const getSupabase = () => {
+  if (supabaseClient !== undefined) return supabaseClient;
+  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceRole = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!url || !serviceRole) {
+    supabaseClient = null;
+    return supabaseClient;
+  }
+  supabaseClient = createClient(url, serviceRole, { auth: { persistSession: false } });
+  return supabaseClient;
+};
 
 const getDbPath = () => {
   const custom = process.env.MC_VERIFY_DB_PATH?.trim();
@@ -74,7 +89,7 @@ const getUniquePendingCode = (db: Database.Database) => {
   return code;
 };
 
-export const createVerificationCode = (webUserId: string, requestedUsername: string | null) => {
+const createVerificationCodeSqlite = (webUserId: string, requestedUsername: string | null) => {
   const db = getDb();
   const now = Date.now();
   const code = getUniquePendingCode(db);
@@ -102,7 +117,7 @@ export const createVerificationCode = (webUserId: string, requestedUsername: str
   return { code, expiresAt };
 };
 
-export const getVerificationStatus = (webUserId: string) => {
+const getVerificationStatusSqlite = (webUserId: string) => {
   const db = getDb();
   const row = db
     .prepare("SELECT * FROM minecraft_verifications WHERE web_user_id = ?")
@@ -114,4 +129,78 @@ export const getVerificationStatus = (webUserId: string) => {
     return { ...row, status: "expired" as const };
   }
   return row;
+};
+
+const getUniquePendingCodeSupabase = async (supabase: any) => {
+  let code = makeSixDigitCode();
+  let guard = 0;
+  while (guard < 20) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("code")
+      .eq("code", code)
+      .eq("status", "pending")
+      .gt("expires_at", Date.now())
+      .limit(1);
+    if (error) throw error;
+    if (!data?.length) return code;
+    code = makeSixDigitCode();
+    guard += 1;
+  }
+  return code;
+};
+
+export const createVerificationCode = async (webUserId: string, requestedUsername: string | null) => {
+  const supabase = getSupabase();
+  if (!supabase) return createVerificationCodeSqlite(webUserId, requestedUsername);
+  const admin = supabase as any;
+
+  const now = Date.now();
+  const code = await getUniquePendingCodeSupabase(admin);
+  const expiresAt = now + DEFAULT_TTL_MS;
+
+  const payload = {
+    web_user_id: webUserId,
+    requested_username: requestedUsername,
+    code,
+    status: "pending",
+    minecraft_username: null,
+    created_at: now,
+    expires_at: expiresAt,
+    verified_at: null,
+    attempts: 0,
+    last_attempt_at: null,
+  };
+
+  const { error } = await admin.from(TABLE).upsert(payload, { onConflict: "web_user_id" });
+  if (error) throw error;
+
+  return { code, expiresAt };
+};
+
+export const getVerificationStatus = async (webUserId: string): Promise<VerificationRow | null> => {
+  const supabase = getSupabase();
+  if (!supabase) return getVerificationStatusSqlite(webUserId);
+  const admin = supabase as any;
+
+  const { data, error } = await admin
+    .from(TABLE)
+    .select("*")
+    .eq("web_user_id", webUserId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  if (data.status === "pending" && data.expires_at <= Date.now()) {
+    const { error: expireError } = await admin
+      .from(TABLE)
+      .update({ status: "expired" })
+      .eq("web_user_id", webUserId);
+    if (expireError) throw expireError;
+    return { ...(data as VerificationRow), status: "expired" };
+  }
+
+  return data as VerificationRow;
 };

@@ -13,10 +13,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid web user id." }, { status: 400 });
     }
 
-    const { code, expiresAt } = createVerificationCode(webUserId, requestedUsername);
+    const { code, expiresAt } = await createVerificationCode(webUserId, requestedUsername);
     return NextResponse.json({ code, expiresAt });
   } catch {
     return NextResponse.json({ error: "Failed to create verification code." }, { status: 500 });
   }
 }
-

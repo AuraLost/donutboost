@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import bedrock from "bedrock-protocol";
 import Database from "better-sqlite3";
+import { createClient } from "@supabase/supabase-js";
 
 const HOST = process.env.MC_SERVER_HOST || "DonutSMP.net";
 const PORT = Number(process.env.MC_SERVER_PORT || 19132);
@@ -12,6 +13,8 @@ const RAKNET_BACKEND = process.env.MC_RAKNET_BACKEND || "raknet-native";
 const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(), ".minecraft-bot");
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const RECONNECT_ON_KICK_MS = Number(process.env.MC_RECONNECT_ON_KICK_MS || 500);
 const RECONNECT_ON_CLOSE_MS = Number(process.env.MC_RECONNECT_ON_CLOSE_MS || 1_000);
@@ -36,6 +39,10 @@ let canSendMovePlayer = true;
 let lastPacketAt = Date.now();
 
 const senderRateLimit = new Map();
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    : null;
 
 const now = () => Date.now();
 
@@ -151,7 +158,63 @@ function sendWhisper(target, text) {
   sendCommand(`/msg ${safeTarget} ${text}`);
 }
 
-function consumeVerificationCode(sender, code) {
+async function consumeVerificationCode(sender, code) {
+  if (supabase) {
+    const currentTs = now();
+    const { error: expireError } = await supabase
+      .from("minecraft_verifications")
+      .update({ status: "expired" })
+      .eq("status", "pending")
+      .lte("expires_at", currentTs);
+    if (expireError) {
+      console.error("[bot] failed expiring old verification codes:", expireError);
+      return { ok: false, reason: "invalid" };
+    }
+
+    const { data: rows, error: rowError } = await supabase
+      .from("minecraft_verifications")
+      .select("web_user_id, code, status, expires_at, attempts")
+      .eq("code", code)
+      .limit(1);
+    if (rowError) {
+      console.error("[bot] failed loading verification code:", rowError);
+      return { ok: false, reason: "invalid" };
+    }
+
+    const row = rows?.[0];
+    if (!row) return { ok: false, reason: "invalid" };
+    if (row.status === "verified") return { ok: false, reason: "already_verified" };
+
+    if (row.status !== "pending" || row.expires_at <= currentTs) {
+      await supabase
+        .from("minecraft_verifications")
+        .update({
+          attempts: Number(row.attempts || 0) + 1,
+          last_attempt_at: currentTs,
+        })
+        .eq("code", code);
+      return { ok: false, reason: "expired" };
+    }
+
+    const { error: verifyError } = await supabase
+      .from("minecraft_verifications")
+      .update({
+        status: "verified",
+        minecraft_username: sender,
+        verified_at: currentTs,
+        attempts: Number(row.attempts || 0) + 1,
+        last_attempt_at: currentTs,
+      })
+      .eq("web_user_id", row.web_user_id);
+
+    if (verifyError) {
+      console.error("[bot] failed writing verification success:", verifyError);
+      return { ok: false, reason: "invalid" };
+    }
+
+    return { ok: true, webUserId: row.web_user_id };
+  }
+
   expireOldStmt.run(now());
   const row = consumeCodeStmt.get(code);
   if (!row) return { ok: false, reason: "invalid" };
@@ -349,20 +412,25 @@ function attachHandlers(bot) {
       return;
     }
 
-    const result = consumeVerificationCode(sender, code);
-    if (result.ok) {
-      sendWhisper(sender, "Verification successful. Your web account is now linked.");
-      console.log(`[bot] linked ${sender} to ${result.webUserId}`);
-      return;
-    }
+    void (async () => {
+      const result = await consumeVerificationCode(sender, code);
+      if (result.ok) {
+        sendWhisper(sender, "Verification successful. Your web account is now linked.");
+        console.log(`[bot] linked ${sender} to ${result.webUserId}`);
+        return;
+      }
 
-    if (result.reason === "already_verified") {
-      sendWhisper(sender, "That code was already used.");
-    } else if (result.reason === "expired") {
-      sendWhisper(sender, "That code expired. Request a new code on the website.");
-    } else {
-      sendWhisper(sender, "Invalid code. Check the website and try again.");
-    }
+      if (result.reason === "already_verified") {
+        sendWhisper(sender, "That code was already used.");
+      } else if (result.reason === "expired") {
+        sendWhisper(sender, "That code expired. Request a new code on the website.");
+      } else {
+        sendWhisper(sender, "Invalid code. Check the website and try again.");
+      }
+    })().catch((error) => {
+      console.error("[bot] verification handling failed:", error);
+      sendWhisper(sender, "Verification check failed. Please try again in a moment.");
+    });
   });
 
   bot.on("kick", (reason) => {

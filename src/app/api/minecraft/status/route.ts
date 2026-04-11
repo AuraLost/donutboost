@@ -9,7 +9,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing web user id." }, { status: 400 });
     }
 
-    const row = getVerificationStatus(webUserId);
+    const row = await getVerificationStatus(webUserId);
     if (!row) {
       return NextResponse.json({ status: "none" });
     }
@@ -26,4 +26,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to read verification status." }, { status: 500 });
   }
 }
-
