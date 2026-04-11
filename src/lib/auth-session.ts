@@ -45,11 +45,21 @@ export const verifySessionToken = (token: string | undefined | null): SessionPay
   }
 };
 
-export const sessionCookieOptions = {
+const resolveCookieDomain = (host: string | null) => {
+  const fromEnv = (process.env.SESSION_COOKIE_DOMAIN || "").trim();
+  if (fromEnv) return fromEnv;
+  if (!host) return undefined;
+  const clean = host.split(":")[0].toLowerCase();
+  if (clean === "localhost" || clean === "127.0.0.1") return undefined;
+  if (clean === "donutboost.lol" || clean.endsWith(".donutboost.lol")) return ".donutboost.lol";
+  return undefined;
+};
+
+export const sessionCookieOptionsForHost = (host: string | null) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
   maxAge: SESSION_TTL_MS / 1000,
-};
-
+  domain: resolveCookieDomain(host),
+});

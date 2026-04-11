@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth-session";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptionsForHost } from "@/lib/auth-session";
 import { createUser, getUserByUsername, toPublicUser } from "@/lib/user-store";
 
 export async function POST(req: Request) {
@@ -30,7 +30,8 @@ export async function POST(req: Request) {
 
     const token = createSessionToken(user.id);
     const res = NextResponse.json({ ok: true, firstLogin, user: toPublicUser(user) });
-    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptionsForHost(host));
     return res;
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Login failed." }, { status: 500 });

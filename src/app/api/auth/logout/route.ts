@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth-session";
+import { SESSION_COOKIE, sessionCookieOptionsForHost } from "@/lib/auth-session";
 
-export async function POST() {
+export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true });
-  res.cookies.delete(SESSION_COOKIE);
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  res.cookies.set(SESSION_COOKIE, "", {
+    ...sessionCookieOptionsForHost(host),
+    maxAge: 0,
+  });
   return res;
 }
