@@ -18,6 +18,13 @@ export default function HomeDashboardPage() {
   const { balance, totalWins, totalLosses, totalWagered, totalPayout, hydrateFromUser } = useEconomy();
   const [discordLinked, setDiscordLinked] = useState(false);
   const [discordTag, setDiscordTag] = useState("");
+  const [userId, setUserId] = useState("");
+  const [mcUsername, setMcUsername] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
   useEffect(() => {
     void hydrateFromUser();
@@ -27,9 +34,71 @@ export default function HomeDashboardPage() {
       const data = await res.json();
       setDiscordLinked(Boolean(data?.user?.discordLinked));
       setDiscordTag(data?.user?.discordUsername || "");
+      setUserId(data?.user?.id || "");
+      setMcUsername(data?.user?.username || "");
     };
     void load();
   }, [hydrateFromUser]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const poll = async () => {
+      const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
+      setVerifyStatus(status);
+      setVerifyCode(data?.code || "");
+      setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
+      if (status === "verified") {
+        setVerifyMessage(`Verified as ${data?.minecraftUsername || mcUsername}.`);
+      } else if (status === "pending") {
+        setVerifyMessage("Waiting for in-game payment confirmation...");
+      } else if (status === "expired") {
+        setVerifyMessage("Verification code expired. Generate a new one.");
+      } else {
+        setVerifyMessage("");
+      }
+    };
+
+    void poll();
+    const iv = window.setInterval(poll, 3500);
+    return () => window.clearInterval(iv);
+  }, [userId, mcUsername]);
+
+  const handleGenerateCode = async () => {
+    if (!userId || isGeneratingCode) return;
+    setIsGeneratingCode(true);
+    try {
+      const res = await fetch("/api/minecraft/request-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webUserId: userId,
+          requestedUsername: mcUsername,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
+      setVerifyCode(data.code || "");
+      setExpiresAt(data.expiresAt || null);
+      setVerifyStatus("pending");
+      setVerifyMessage("Code generated. In Minecraft run /pay .LilHazMC 1");
+    } catch (error) {
+      setVerifyMessage(error instanceof Error ? error.message : "Failed to create verification code.");
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
+  const expiresIn = (() => {
+    if (!expiresAt) return "";
+    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  })();
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10 animate-in fade-in duration-500">
@@ -75,6 +144,40 @@ export default function HomeDashboardPage() {
           <p className="text-2xl font-black mt-2 text-success">{formatMoney(totalPayout)}</p>
         </Card>
       </div>
+
+      <Card className="bg-white/5 border border-white/10 p-5 mt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-white/40 text-xs font-black uppercase tracking-widest">Minecraft Verification</p>
+            <p className="text-sm text-white/70 font-bold mt-1">Linked Login: {mcUsername || "Unknown"}</p>
+          </div>
+          <div className={`text-xs font-black px-3 py-1 rounded-full border ${verifyStatus === "verified" ? "text-success border-success/30 bg-success/10" : "text-warning border-warning/30 bg-warning/10"}`}>
+            {verifyStatus === "verified" ? "Verified" : "Not Verified"}
+          </div>
+        </div>
+
+        {verifyStatus !== "verified" && (
+          <div className="mt-4 space-y-3">
+            <Button onClick={handleGenerateCode} isDisabled={isGeneratingCode || !userId} className="bg-primary text-black font-black">
+              {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
+            </Button>
+            {verifyCode && (
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
+                <p className="text-xs font-black uppercase tracking-wider text-primary/80">Code</p>
+                <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
+                <p className="text-xs text-white/70 mt-1">In game: <span className="font-black text-white">/pay .LilHazMC 1</span></p>
+                {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {verifyMessage && (
+          <p className={`text-xs font-bold mt-3 ${verifyStatus === "verified" ? "text-success" : "text-white/70"}`}>
+            {verifyMessage}
+          </p>
+        )}
+      </Card>
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link href="/games/crash"><Button className="bg-primary text-black font-black"><Gamepad2 size={16} /> Crash</Button></Link>

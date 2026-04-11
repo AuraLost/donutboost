@@ -92,6 +92,10 @@ export function Navbar() {
     setTimeout(() => setView("main"), 300);
   };
 
+  if (pathname === "/" || pathname === "/landing") {
+    return null;
+  }
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-2xl border-b border-white/5 z-50 px-4 md:px-6">
