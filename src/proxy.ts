@@ -19,6 +19,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Must complete Minecraft verification before accessing games.
+  if (pathname.startsWith("/games/") && !valid.verified) {
+    const verifyUrl = new URL("/", request.url);
+    return NextResponse.redirect(verifyUrl);
+  }
+
   return NextResponse.next();
 }
 

@@ -1,10 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 import { Play, ShieldCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
+
+type SessionUser = {
+  id: string;
+  username: string;
+  balance: number;
+  totalWins: number;
+  totalLosses: number;
+  totalWagered: number;
+  totalPayout: number;
+};
 
 export default function LandingPage() {
   const router = useRouter();
@@ -15,24 +25,76 @@ export default function LandingPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [verified, setVerified] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+
+  const syncEconomyFromUser = (u: SessionUser) => {
+    setFromServer({
+      balance: u.balance,
+      totalWins: u.totalWins,
+      totalLosses: u.totalLosses,
+      totalWagered: u.totalWagered,
+      totalPayout: u.totalPayout,
+    });
+  };
+
   useEffect(() => {
     const check = async () => {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       if (!data?.user) return;
-      setFromServer({
-        balance: data.user.balance,
-        totalWins: data.user.totalWins,
-        totalLosses: data.user.totalLosses,
-        totalWagered: data.user.totalWagered,
-        totalPayout: data.user.totalPayout,
-      });
-      router.replace("/home");
+      setUser(data.user);
+      setVerified(Boolean(data.verified));
+      syncEconomyFromUser(data.user);
+      if (data.verified) {
+        router.replace("/home");
+      }
     };
 
     void check();
   }, [router, setFromServer]);
+
+  useEffect(() => {
+    if (!user || verified) return;
+
+    const poll = async () => {
+      const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
+      setVerifyStatus(status);
+      setVerifyCode(data?.code || "");
+      setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
+
+      if (status === "verified") {
+        setVerified(true);
+        setVerifyMessage("Verification complete. Redirecting...");
+        window.setTimeout(() => router.push("/home"), 450);
+      } else if (status === "pending") {
+        setVerifyMessage("Waiting for in-game /pay confirmation...");
+      } else if (status === "expired") {
+        setVerifyMessage("Code expired. Generate a new one.");
+      }
+    };
+
+    void poll();
+    const iv = window.setInterval(poll, 3500);
+    return () => window.clearInterval(iv);
+  }, [user, verified, router]);
+
+  const expiresIn = useMemo(() => {
+    if (!expiresAt) return "";
+    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  }, [expiresAt]);
 
   const submit = async () => {
     if (!minecraftUsername.trim() || loading) return;
@@ -48,24 +110,48 @@ export default function LandingPage() {
       });
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Authentication failed.");
+      if (!res.ok) throw new Error(data?.error || "Authentication failed.");
+
+      setUser(data.user);
+      syncEconomyFromUser(data.user);
+      setVerified(Boolean(data.verified));
+
+      if (data.verified) {
+        setMessage("Login successful.");
+        window.setTimeout(() => router.push("/home"), 300);
+      } else {
+        setMessage(data.firstLogin ? "First login detected. 1,000,000 bonus applied." : "Logged in. Verify to start playing games.");
       }
-
-      setFromServer({
-        balance: data.user.balance,
-        totalWins: data.user.totalWins,
-        totalLosses: data.user.totalLosses,
-        totalWagered: data.user.totalWagered,
-        totalPayout: data.user.totalPayout,
-      });
-
-      setMessage(data.firstLogin ? "First login detected. 1,000,000 bonus applied." : "Login successful.");
-      window.setTimeout(() => router.push("/home"), 400);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to authenticate.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateVerificationCode = async () => {
+    if (!user || isGeneratingCode) return;
+    setIsGeneratingCode(true);
+    setVerifyMessage("");
+    try {
+      const res = await fetch("/api/minecraft/request-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webUserId: user.id,
+          requestedUsername: user.username,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
+      setVerifyCode(data?.code || "");
+      setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
+      setVerifyStatus("pending");
+      setVerifyMessage("Code generated. In Minecraft run /pay .LilHazMC 1");
+    } catch (err) {
+      setVerifyMessage(err instanceof Error ? err.message : "Failed to generate code.");
+    } finally {
+      setIsGeneratingCode(false);
     }
   };
 
@@ -90,10 +176,35 @@ export default function LandingPage() {
           Create an account to unlock all games. New users get a 1,000,000 bonus. Link Discord later for +500,000.
         </p>
 
-        <Button onClick={() => setAuthOpen(true)} size="lg" className="bg-primary text-black font-black px-10 h-12 rounded-2xl">
-          <Play className="mr-2" size={18} fill="currentColor" />
-          Login
-        </Button>
+        {!user && (
+          <Button onClick={() => setAuthOpen(true)} size="lg" className="bg-primary text-black font-black px-10 h-12 rounded-2xl">
+            <Play className="mr-2" size={18} fill="currentColor" />
+            Login
+          </Button>
+        )}
+
+        {user && !verified && (
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0c0c0f]/90 p-6 text-left shadow-2xl shadow-black">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-primary/80">Verification Required</p>
+            <p className="text-lg font-black text-white mt-2">Verify Minecraft Before Playing</p>
+            <p className="text-xs text-white/60 mt-1">Logged in as {user.username}. Complete this to unlock all games.</p>
+
+            <Button onClick={generateVerificationCode} isDisabled={isGeneratingCode} className="mt-4 bg-primary text-black font-black w-full">
+              {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
+            </Button>
+
+            {verifyCode && (
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 mt-3">
+                <p className="text-xs font-black uppercase tracking-wider text-primary/80">Code</p>
+                <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
+                <p className="text-xs text-white/70 mt-1">In game: <span className="font-black text-white">/pay .LilHazMC 1</span></p>
+                {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
+              </div>
+            )}
+
+            {verifyMessage && <p className="text-xs font-bold text-white/70 mt-3">{verifyMessage}</p>}
+          </div>
+        )}
       </div>
 
       {authOpen && (
@@ -107,7 +218,7 @@ export default function LandingPage() {
             <h2 className="text-2xl font-black text-white tracking-tight">Minecraft Login</h2>
             <p className="text-xs text-white/30 font-bold uppercase tracking-widest mt-1">Use your Minecraft username only</p>
 
-            <div className="space-y-3">
+            <div className="space-y-3 mt-3">
               <input
                 type="text"
                 value={minecraftUsername}

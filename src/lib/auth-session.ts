@@ -6,6 +6,7 @@ const SESSION_TTL_MS = 30 * ONE_DAY_MS;
 
 type SessionPayload = {
   uid: string;
+  verified: boolean;
   exp: number;
 };
 
@@ -20,8 +21,8 @@ const getSecret = () => {
 
 const sign = (data: string) => createHmac("sha256", getSecret()).update(data).digest("base64url");
 
-export const createSessionToken = (uid: string) => {
-  const payload: SessionPayload = { uid, exp: Date.now() + SESSION_TTL_MS };
+export const createSessionToken = (uid: string, verified = false) => {
+  const payload: SessionPayload = { uid, verified, exp: Date.now() + SESSION_TTL_MS };
   const encoded = base64UrlEncode(JSON.stringify(payload));
   const signature = sign(encoded);
   return `${encoded}.${signature}`;
@@ -38,6 +39,7 @@ export const verifySessionToken = (token: string | undefined | null): SessionPay
   try {
     const payload = JSON.parse(base64UrlDecode(encoded)) as SessionPayload;
     if (!payload?.uid || typeof payload.exp !== "number") return null;
+    if (typeof payload.verified !== "boolean") payload.verified = false;
     if (payload.exp <= Date.now()) return null;
     return payload;
   } catch {

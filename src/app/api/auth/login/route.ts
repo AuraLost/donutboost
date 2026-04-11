@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptionsForHost } from "@/lib/auth-session";
 import { createUser, getUserByUsername, toPublicUser } from "@/lib/user-store";
+import { getVerificationStatus } from "@/lib/minecraft-verification";
 
 export async function POST(req: Request) {
   try {
@@ -28,8 +29,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Could not login right now. Try again." }, { status: 500 });
     }
 
-    const token = createSessionToken(user.id);
-    const res = NextResponse.json({ ok: true, firstLogin, user: toPublicUser(user) });
+    const verification = await getVerificationStatus(user.id);
+    const isVerified = verification?.status === "verified";
+    const token = createSessionToken(user.id, isVerified);
+    const res = NextResponse.json({ ok: true, firstLogin, verified: isVerified, user: toPublicUser(user) });
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptionsForHost(host));
     return res;

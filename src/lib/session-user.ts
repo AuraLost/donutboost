@@ -7,3 +7,9 @@ export const getSessionUserId = async () => {
   const payload = verifySessionToken(token);
   return payload?.uid ?? null;
 };
+
+export const getSessionPayload = async () => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  return verifySessionToken(token);
+};
