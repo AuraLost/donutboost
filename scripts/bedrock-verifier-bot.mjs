@@ -13,6 +13,10 @@ const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const RECONNECT_ON_KICK_MS = Number(process.env.MC_RECONNECT_ON_KICK_MS || 500);
+const RECONNECT_ON_CLOSE_MS = Number(process.env.MC_RECONNECT_ON_CLOSE_MS || 1_000);
+const RECONNECT_ON_ERROR_MS = Number(process.env.MC_RECONNECT_ON_ERROR_MS || 1_500);
+const CONNECT_STALL_MS = Number(process.env.MC_CONNECT_STALL_MS || 25_000);
 const ANTI_AFK_ENABLED = process.env.MC_ANTI_AFK_ENABLED !== "0";
 const MOVE_PLAYER_ENABLED = process.env.MC_MOVE_PLAYER_ENABLED === "1";
 const WATCHDOG_ENABLED = process.env.MC_WATCHDOG_ENABLED === "1";
@@ -23,6 +27,7 @@ let reconnectDelay = 2_000;
 let reconnectTimer = null;
 let antiAfkTimer = null;
 let connectionWatchdogTimer = null;
+let connectStallTimer = null;
 let isStopping = false;
 let tickCounter = 0;
 let currentPosition = { x: 0, y: 0, z: 0 };
@@ -254,9 +259,28 @@ function stopConnectionWatchdog() {
   connectionWatchdogTimer = null;
 }
 
-function scheduleReconnect(reason) {
+function stopConnectStallTimer() {
+  if (!connectStallTimer) return;
+  clearTimeout(connectStallTimer);
+  connectStallTimer = null;
+}
+
+function startConnectStallTimer() {
+  stopConnectStallTimer();
+  connectStallTimer = setTimeout(() => {
+    if (!client || isStopping) return;
+    console.warn(`[bot] connect stall detected (> ${CONNECT_STALL_MS}ms), forcing reconnect`);
+    try {
+      client.close();
+    } catch {
+      // no-op
+    }
+  }, CONNECT_STALL_MS);
+}
+
+function scheduleReconnect(reason, immediateMs = null) {
   if (isStopping || reconnectTimer) return;
-  const wait = reconnectDelay;
+  const wait = immediateMs ?? reconnectDelay;
   reconnectDelay = Math.min(Math.floor(reconnectDelay * 1.6), MAX_RECONNECT_DELAY_MS);
   console.warn(`[bot] reconnecting in ${wait}ms (${reason})`);
   reconnectTimer = setTimeout(() => {
@@ -275,6 +299,7 @@ function attachHandlers(bot) {
     lastPacketAt = Date.now();
     runtimeEntityId = null;
     canSendMovePlayer = true;
+    stopConnectStallTimer();
     console.log("[bot] joined server");
   });
 
@@ -343,22 +368,26 @@ function attachHandlers(bot) {
   bot.on("kick", (reason) => {
     stopAntiAfk();
     stopConnectionWatchdog();
+    stopConnectStallTimer();
     console.warn("[bot] kicked:", reason);
-    scheduleReconnect("kick");
+    reconnectDelay = 2_000;
+    scheduleReconnect("kick", RECONNECT_ON_KICK_MS);
   });
 
   bot.on("close", () => {
     stopAntiAfk();
     stopConnectionWatchdog();
+    stopConnectStallTimer();
     console.warn("[bot] connection closed");
-    scheduleReconnect("close");
+    scheduleReconnect("close", RECONNECT_ON_CLOSE_MS);
   });
 
   bot.on("error", (error) => {
     stopAntiAfk();
     stopConnectionWatchdog();
+    stopConnectStallTimer();
     console.error("[bot] error:", error);
-    scheduleReconnect("error");
+    scheduleReconnect("error", RECONNECT_ON_ERROR_MS);
   });
 }
 
@@ -377,6 +406,7 @@ function connect() {
       console.log(`[bot] code: ${codeInfo.user_code}`);
     },
   });
+  startConnectStallTimer();
   attachHandlers(client);
 }
 
@@ -384,6 +414,7 @@ process.on("SIGINT", () => {
   isStopping = true;
   stopAntiAfk();
   stopConnectionWatchdog();
+  stopConnectStallTimer();
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (client) {
     try {
