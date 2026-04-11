@@ -88,7 +88,7 @@ export default function LandingPage() {
       setVerifyCode(data.code);
       setExpiresAt(data.expiresAt);
       setVerifyStatus("pending");
-      setStatusMessage(`Code generated. Join DonutSMP.net and run /msg ${BOT_NAME} ${data.code}`);
+      setStatusMessage(`Code generated. Join DonutSMP.net and run /pay ${BOT_NAME} 1`);
     } catch (error) {
       setVerifyStatus("error");
       setStatusMessage(error instanceof Error ? error.message : "Could not generate verification code.");
@@ -165,10 +165,10 @@ export default function LandingPage() {
                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/80 mb-1">Your Code</p>
                   <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
                   <p className="text-xs text-white/60 mt-2">
-                    In Minecraft: <span className="font-black text-white">/msg {BOT_NAME} {verifyCode}</span>
+                    In Minecraft: <span className="font-black text-white">/pay {BOT_NAME} 1</span>
                   </p>
                   {verifyStatus === "pending" && (
-                    <p className="text-[11px] font-bold text-white/50 mt-1">Waiting for in-game whisper... expires in {expiresIn}</p>
+                  <p className="text-[11px] font-bold text-white/50 mt-1">Waiting for in-game /pay confirmation... expires in {expiresIn}</p>
                   )}
                 </div>
               )}

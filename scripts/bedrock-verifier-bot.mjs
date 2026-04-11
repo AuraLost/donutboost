@@ -106,6 +106,10 @@ function normalizeType(type) {
   return String(type || "").toLowerCase();
 }
 
+function stripFormatting(text) {
+  return String(text || "").replace(/§./g, "");
+}
+
 function isWhisperPacket(packet) {
   const type = normalizeType(packet.type);
   return type === "whisper" || type === "json_whisper";
@@ -124,6 +128,27 @@ function isLikelyDirectMessageToBot(packet, message) {
 function extractCode(message) {
   const match = String(message || "").match(/\b(\d{6})\b/);
   return match ? match[1] : null;
+}
+
+function isLikelyPayVerificationEvent(packet, message) {
+  const cleanMessage = stripFormatting(message).toLowerCase();
+  const cleanSource = stripFormatting(packet?.source_name || "").toLowerCase();
+  const botLower = BOT_REPLY_NAME.toLowerCase();
+  const botNoDot = botLower.replace(/^\./, "");
+  const mentionsBot = cleanMessage.includes(botLower) || cleanMessage.includes(botNoDot);
+  const mentionsPayment = cleanMessage.includes("paid") || cleanMessage.includes("sent");
+  const mentionsOne = /\b1(?:\.0+)?\b/.test(cleanMessage) || /\$1\b/.test(cleanMessage);
+  // Payment notices may be system text with no source_name. Accept either source_name or explicit user prefix in message.
+  const hasSender = Boolean(cleanSource) || /^[a-z0-9_.-]{3,16}\b/i.test(cleanMessage);
+  return mentionsPayment && mentionsOne && (mentionsBot || cleanMessage.includes("you")) && hasSender;
+}
+
+function extractSenderFromPayment(packet, message) {
+  const cleanSource = stripFormatting(packet?.source_name || "").trim();
+  if (cleanSource) return cleanSource;
+  const cleanMessage = stripFormatting(message).trim();
+  const match = cleanMessage.match(/^([A-Za-z0-9_.-]{3,16})\b/);
+  return match ? match[1] : "";
 }
 
 function isRateLimited(sender) {
@@ -236,6 +261,68 @@ async function consumeVerificationCode(sender, code) {
   }
 
   verifyStmt.run(sender, now(), now(), row.web_user_id);
+  return { ok: true, webUserId: row.web_user_id };
+}
+
+async function consumeVerificationByUsername(sender) {
+  const cleanSender = String(sender || "").trim();
+  if (!cleanSender) return { ok: false, reason: "invalid" };
+
+  if (supabase) {
+    const currentTs = now();
+    const { error: expireError } = await supabase
+      .from("minecraft_verifications")
+      .update({ status: "expired" })
+      .eq("status", "pending")
+      .lte("expires_at", currentTs);
+    if (expireError) {
+      console.error("[bot] failed expiring old verification codes:", expireError);
+      return { ok: false, reason: "invalid" };
+    }
+
+    const { data: rows, error: rowError } = await supabase
+      .from("minecraft_verifications")
+      .select("web_user_id, status, attempts, requested_username")
+      .eq("status", "pending")
+      .gt("expires_at", currentTs)
+      .ilike("requested_username", cleanSender)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (rowError) {
+      console.error("[bot] failed loading pending verification by username:", rowError);
+      return { ok: false, reason: "invalid" };
+    }
+
+    const row = rows?.[0];
+    if (!row) return { ok: false, reason: "invalid" };
+    const nextAttempts = Number(row.attempts || 0) + 1;
+
+    const { error: verifyError } = await supabase
+      .from("minecraft_verifications")
+      .update({
+        status: "verified",
+        minecraft_username: cleanSender,
+        verified_at: currentTs,
+        attempts: nextAttempts,
+        last_attempt_at: currentTs,
+      })
+      .eq("web_user_id", row.web_user_id);
+    if (verifyError) {
+      console.error("[bot] failed writing username verification success:", verifyError);
+      return { ok: false, reason: "invalid" };
+    }
+    return { ok: true, webUserId: row.web_user_id };
+  }
+
+  expireOldStmt.run(now());
+  const row = db
+    .prepare(
+      "SELECT web_user_id FROM minecraft_verifications WHERE status = 'pending' AND expires_at > ? AND lower(requested_username) = lower(?) ORDER BY created_at DESC LIMIT 1"
+    )
+    .get(now(), cleanSender);
+  if (!row) return { ok: false, reason: "invalid" };
+  verifyStmt.run(cleanSender, now(), now(), row.web_user_id);
   return { ok: true, webUserId: row.web_user_id };
 }
 
@@ -409,18 +496,34 @@ function attachHandlers(bot) {
   });
 
   bot.on("text", (packet) => {
-    const sender = String(packet?.source_name || "").trim();
     const message = String(packet?.message || "").trim();
-    if (!sender || !message) return;
+    if (!message) return;
+
+    const paySender = extractSenderFromPayment(packet, message);
+    if (isLikelyPayVerificationEvent(packet, message) && paySender && paySender.toLowerCase() !== BOT_REPLY_NAME.toLowerCase()) {
+      if (isRateLimited(paySender)) return;
+      void (async () => {
+        const result = await consumeVerificationByUsername(paySender);
+        if (result.ok) {
+          sendWhisper(paySender, "Verification successful. Your web account is now linked.");
+          console.log(`[bot] linked ${paySender} to ${result.webUserId} via /pay`);
+          return;
+        }
+        sendWhisper(paySender, "No pending verification found for your username. Start a new verification on the website.");
+      })().catch((error) => {
+        console.error("[bot] pay verification handling failed:", error);
+      });
+      return;
+    }
+
+    const sender = String(packet?.source_name || "").trim();
+    if (!sender) return;
     if (!isLikelyDirectMessageToBot(packet, message)) return;
     if (sender.toLowerCase() === BOT_REPLY_NAME.toLowerCase()) return;
     if (isRateLimited(sender)) return;
 
     const code = extractCode(message);
-    if (!code) {
-      sendWhisper(sender, `Send a 6-digit code only. Example: /msg ${BOT_REPLY_NAME} 123456`);
-      return;
-    }
+    if (!code) return;
 
     void (async () => {
       const result = await consumeVerificationCode(sender, code);
