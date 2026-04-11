@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Card, Button } from "@heroui/react";
 import { Wallet, Trophy, Skull, Gamepad2, Link2 } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const formatMoney = (v: number) => {
@@ -15,12 +16,12 @@ const formatMoney = (v: number) => {
 };
 
 export default function HomeDashboardPage() {
+  const router = useRouter();
   const { balance, totalWins, totalLosses, totalWagered, totalPayout, hydrateFromUser } = useEconomy();
   const [discordLinked, setDiscordLinked] = useState(false);
   const [discordTag, setDiscordTag] = useState("");
   const [userId, setUserId] = useState("");
   const [mcUsername, setMcUsername] = useState("");
-  const [verificationUsername, setVerificationUsername] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
@@ -37,7 +38,6 @@ export default function HomeDashboardPage() {
       setDiscordTag(data?.user?.discordUsername || "");
       setUserId(data?.user?.id || "");
       setMcUsername(data?.user?.username || "");
-      setVerificationUsername(data?.user?.username || "");
     };
     void load();
   }, [hydrateFromUser]);
@@ -83,7 +83,7 @@ export default function HomeDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           webUserId: userId,
-          requestedUsername: verificationUsername.trim() || mcUsername,
+          requestedUsername: mcUsername,
         }),
       });
       const data = await res.json();
@@ -96,6 +96,11 @@ export default function HomeDashboardPage() {
     } finally {
       setIsGeneratingCode(false);
     }
+  };
+
+  const switchAccount = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/?login=1");
   };
 
   const expiresIn = (() => {
@@ -175,17 +180,9 @@ export default function HomeDashboardPage() {
               </div>
             )}
 
-            <div>
-              <label className="text-[11px] font-black uppercase tracking-wider text-white/50">Different Username (Optional)</label>
-              <input
-                type="text"
-                value={verificationUsername}
-                onChange={(e) => setVerificationUsername(e.target.value)}
-                placeholder={mcUsername || "Minecraft Username"}
-                className="w-full h-11 mt-1 bg-white/5 border border-white/10 rounded-xl px-3 text-white font-bold text-sm placeholder:text-white/30 focus:outline-none focus:border-primary/50"
-              />
-              <p className="text-[11px] text-white/40 mt-1">Use this if the account paying the bot has a different username.</p>
-            </div>
+            <Button onClick={switchAccount} variant="ghost" className="w-full bg-white/10 text-white font-black">
+              Use Different Account
+            </Button>
           </div>
         )}
 
