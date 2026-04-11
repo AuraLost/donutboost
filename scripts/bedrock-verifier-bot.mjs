@@ -13,7 +13,8 @@ const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
 const MAX_RECONNECT_DELAY_MS = 30_000;
-const ANTI_AFK_ENABLED = process.env.MC_ANTI_AFK_ENABLED === "1";
+const ANTI_AFK_ENABLED = process.env.MC_ANTI_AFK_ENABLED !== "0";
+const MOVE_PLAYER_ENABLED = process.env.MC_MOVE_PLAYER_ENABLED === "1";
 const WATCHDOG_ENABLED = process.env.MC_WATCHDOG_ENABLED === "1";
 const WATCHDOG_IDLE_MS = Number(process.env.MC_WATCHDOG_IDLE_MS || 120_000);
 
@@ -191,7 +192,7 @@ function startAntiAfk() {
       console.error("[bot] anti-afk auth-input error:", error);
     }
 
-    if (!canSendMovePlayer || runtimeEntityId === null) return;
+    if (!MOVE_PLAYER_ENABLED || !canSendMovePlayer || runtimeEntityId === null) return;
     try {
       const normalizedRuntimeId =
         typeof runtimeEntityId === "bigint" ? Number(runtimeEntityId) : Number(runtimeEntityId);
