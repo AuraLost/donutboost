@@ -19,9 +19,9 @@ const parseBet = (s: string): number => {
 };
 
 const DIFFICULTIES: Record<Difficulty, { label: string; color: string; multiplier: number; winChance: number }> = {
-  noob: { label: "Noob", color: "text-success", multiplier: 1, winChance: 0.48 },
-  pro: { label: "Pro", color: "text-primary", multiplier: 1.25, winChance: 0.4 },
-  expert: { label: "Expert", color: "text-danger", multiplier: 1.6, winChance: 0.32 },
+  noob: { label: "Noob", color: "text-success", multiplier: 1.15, winChance: 0.58 },
+  pro: { label: "Pro", color: "text-primary", multiplier: 1.7, winChance: 0.46 },
+  expert: { label: "Expert", color: "text-danger", multiplier: 2.6, winChance: 0.3 },
 };
 
 export default function CoinFlipPage() {
@@ -139,7 +139,7 @@ export default function CoinFlipPage() {
           <div className="flex flex-col gap-1.5">
             {(["noob", "pro", "expert"] as Difficulty[]).map(d => (
               <button key={d} onClick={() => setDifficulty(d)} className={`h-10 rounded-xl border font-black text-sm transition-all ${difficulty === d ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/10"}`}>
-                {DIFFICULTIES[d].label} - {Math.round(DIFFICULTIES[d].winChance * 100)}%
+                {DIFFICULTIES[d].label} - {Math.round(DIFFICULTIES[d].winChance * 100)}% hit
               </button>
             ))}
           </div>

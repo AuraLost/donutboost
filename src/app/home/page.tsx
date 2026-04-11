@@ -20,11 +20,11 @@ export default function HomeDashboardPage() {
   const [discordTag, setDiscordTag] = useState("");
   const [userId, setUserId] = useState("");
   const [mcUsername, setMcUsername] = useState("");
-  const [verifyCode, setVerifyCode] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     void hydrateFromUser();
@@ -49,7 +49,6 @@ export default function HomeDashboardPage() {
       const data = await res.json();
       const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
       setVerifyStatus(status);
-      setVerifyCode(data?.code || "");
       setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
       if (status === "verified") {
         setVerifyMessage(`Verified as ${data?.minecraftUsername || mcUsername}.`);
@@ -67,6 +66,12 @@ export default function HomeDashboardPage() {
     return () => window.clearInterval(iv);
   }, [userId, mcUsername]);
 
+  useEffect(() => {
+    if (verifyStatus !== "pending" || !expiresAt) return;
+    const iv = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(iv);
+  }, [verifyStatus, expiresAt]);
+
   const handleGenerateCode = async () => {
     if (!userId || isGeneratingCode) return;
     setIsGeneratingCode(true);
@@ -81,10 +86,9 @@ export default function HomeDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
-      setVerifyCode(data.code || "");
       setExpiresAt(data.expiresAt || null);
       setVerifyStatus("pending");
-      setVerifyMessage("Code generated. In Minecraft run /pay .LilHazMC 1");
+      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00");
     } catch (error) {
       setVerifyMessage(error instanceof Error ? error.message : "Failed to create verification code.");
     } finally {
@@ -94,7 +98,7 @@ export default function HomeDashboardPage() {
 
   const expiresIn = (() => {
     if (!expiresAt) return "";
-    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const diff = Math.max(0, Math.floor((expiresAt - nowMs) / 1000));
     const mins = Math.floor(diff / 60);
     const secs = diff % 60;
     return `${mins}:${String(secs).padStart(2, "0")}`;
@@ -161,11 +165,10 @@ export default function HomeDashboardPage() {
             <Button onClick={handleGenerateCode} isDisabled={isGeneratingCode || !userId} className="bg-primary text-black font-black">
               {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
             </Button>
-            {verifyCode && (
+            {(verifyStatus === "pending" || verifyStatus === "expired") && (
               <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
-                <p className="text-xs font-black uppercase tracking-wider text-primary/80">Code</p>
-                <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
-                <p className="text-xs text-white/70 mt-1">In game: <span className="font-black text-white">/pay .LilHazMC 1</span></p>
+                <p className="text-xs font-black uppercase tracking-wider text-primary/80">In-game Command</p>
+                <p className="text-xl font-black text-primary tracking-wide">/pay .LilHazMC 1.00</p>
                 {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
               </div>
             )}

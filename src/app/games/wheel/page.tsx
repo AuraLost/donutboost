@@ -25,19 +25,34 @@ const parseBet = (s: string): number => {
   return n;
 };
 
-const BASE_SEGMENTS: WheelSegment[] = [
-  { label: "0x", mult: 0, color: "#ef4444", deg: 30 },
-  { label: "0.4x", mult: 0.4, color: "#2563eb", deg: 30 },
+const NOOB_SEGMENTS: WheelSegment[] = [
+  { label: "0.3x", mult: 0.3, color: "#9a3412", deg: 30 },
+  { label: "0.6x", mult: 0.6, color: "#2563eb", deg: 30 },
   { label: "0.8x", mult: 0.8, color: "#7c3aed", deg: 30 },
-  { label: "0x", mult: 0, color: "#ef4444", deg: 30 },
-  { label: "0.6x", mult: 0.6, color: "#16a34a", deg: 30 },
-  { label: "0.25x", mult: 0.25, color: "#9a3412", deg: 30 },
+  { label: "0.9x", mult: 0.9, color: "#16a34a", deg: 30 },
+  { label: "1x", mult: 1, color: "#1d4ed8", deg: 30 },
+  { label: "1.1x", mult: 1.1, color: "#16a34a", deg: 30 },
   { label: "1.2x", mult: 1.2, color: "#ca8a04", deg: 30 },
+  { label: "0.7x", mult: 0.7, color: "#334155", deg: 30 },
+  { label: "1.05x", mult: 1.05, color: "#1d4ed8", deg: 30 },
+  { label: "1.3x", mult: 1.3, color: "#b45309", deg: 30 },
+  { label: "0.85x", mult: 0.85, color: "#16a34a", deg: 30 },
+  { label: "1.4x", mult: 1.4, color: "#f59e0b", deg: 30 },
+];
+
+const PRO_SEGMENTS: WheelSegment[] = [
   { label: "0x", mult: 0, color: "#ef4444", deg: 30 },
-  { label: "0.3x", mult: 0.3, color: "#334155", deg: 30 },
-  { label: "1.5x", mult: 1.5, color: "#b45309", deg: 30 },
-  { label: "0.2x", mult: 0.2, color: "#9a3412", deg: 30 },
-  { label: "0.7x", mult: 0.7, color: "#16a34a", deg: 30 },
+  { label: "0.35x", mult: 0.35, color: "#9a3412", deg: 30 },
+  { label: "0.65x", mult: 0.65, color: "#2563eb", deg: 30 },
+  { label: "0.9x", mult: 0.9, color: "#16a34a", deg: 30 },
+  { label: "1x", mult: 1, color: "#1d4ed8", deg: 30 },
+  { label: "1.25x", mult: 1.25, color: "#16a34a", deg: 30 },
+  { label: "1.8x", mult: 1.8, color: "#ca8a04", deg: 30 },
+  { label: "0x", mult: 0, color: "#ef4444", deg: 30 },
+  { label: "0.5x", mult: 0.5, color: "#334155", deg: 30 },
+  { label: "2.2x", mult: 2.2, color: "#b45309", deg: 30 },
+  { label: "0.25x", mult: 0.25, color: "#9a3412", deg: 30 },
+  { label: "3x", mult: 3, color: "#f59e0b", deg: 30 },
 ];
 
 const EXPERT_SEGMENTS: WheelSegment[] = [
@@ -56,7 +71,7 @@ const EXPERT_SEGMENTS: WheelSegment[] = [
 ];
 
 const getSegments = (difficulty: Difficulty): WheelSegment[] =>
-  difficulty === "expert" ? EXPERT_SEGMENTS : BASE_SEGMENTS;
+  difficulty === "expert" ? EXPERT_SEGMENTS : difficulty === "pro" ? PRO_SEGMENTS : NOOB_SEGMENTS;
 
 const pickSegment = (diff: Difficulty, rigIntensity: number): number => {
   const segments = getSegments(diff);
@@ -67,13 +82,13 @@ const pickSegment = (diff: Difficulty, rigIntensity: number): number => {
       return 2.8 + rigIntensity * 2.4;
     }
     if (diff === "noob") {
-      if (s.mult >= 1) return scaleDownByRig(1.8, rigIntensity, 0.45);
-      if (s.mult === 0) return 0.7 + rigIntensity * 1.5;
-      return 1 + rigIntensity * 0.35;
+      if (s.mult >= 1) return scaleDownByRig(2.3, rigIntensity, 0.35);
+      return 0.85 + rigIntensity * 0.3;
     }
-    if (s.mult >= 1) return scaleDownByRig(1.2, rigIntensity, 0.55);
+    if (s.mult >= 2) return scaleDownByRig(0.85, rigIntensity, 0.62);
+    if (s.mult >= 1) return scaleDownByRig(1.15, rigIntensity, 0.5);
     if (s.mult === 0) return 1 + rigIntensity * 1.8;
-    return 1 + rigIntensity * 0.5;
+    return 1 + rigIntensity * 0.65;
   });
 
   const total = weights.reduce((a, b) => a + b, 0);
@@ -215,7 +230,7 @@ export default function WheelPage() {
           <div className="flex flex-col gap-1.5">
             {(["noob", "pro", "expert"] as Difficulty[]).map(d => (
               <button key={d} disabled={isSpinning} onClick={() => setDifficulty(d)} className={`h-10 rounded-xl border font-black text-sm transition-all disabled:opacity-50 ${difficulty === d ? "bg-primary/15 border-primary/30 text-primary" : "bg-white/5 border-white/5 text-white/30 hover:text-white"}`}>
-                {d === "noob" ? "Noob - biased high" : d === "pro" ? "Pro - balanced" : "Expert - 1 jackpot, 1x, rest 0x"}
+                {d === "noob" ? "Noob - easy, low multipliers" : d === "pro" ? "Pro - medium risk/reward" : "Expert - 1 jackpot, 1x, rest 0x"}
               </button>
             ))}
           </div>

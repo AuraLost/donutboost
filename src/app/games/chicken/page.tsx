@@ -19,9 +19,9 @@ const parseBet = (s: string): number => {
 };
 
 const DIFF_CONFIG: Record<Difficulty, { label: string; baseHit: number; speedFactor: number; multFactor: number }> = {
-  noob:   { label: "Noob",   baseHit: 0.10, speedFactor: 0.9, multFactor: 1.02 },
-  pro:    { label: "Pro",    baseHit: 0.16, speedFactor: 1.05, multFactor: 1.045 },
-  expert: { label: "Expert", baseHit: 0.22, speedFactor: 1.2, multFactor: 1.07 },
+  noob:   { label: "Noob",   baseHit: 0.07, speedFactor: 0.9, multFactor: 1.01 },
+  pro:    { label: "Pro",    baseHit: 0.13, speedFactor: 1.05, multFactor: 1.04 },
+  expert: { label: "Expert", baseHit: 0.22, speedFactor: 1.2, multFactor: 1.09 },
 };
 
 const VISIBLE_LANES = 7;

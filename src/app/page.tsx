@@ -27,11 +27,11 @@ export default function LandingPage() {
 
   const [user, setUser] = useState<SessionUser | null>(null);
   const [verified, setVerified] = useState(false);
-  const [verifyCode, setVerifyCode] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const syncEconomyFromUser = (u: SessionUser) => {
     setFromServer({
@@ -69,7 +69,6 @@ export default function LandingPage() {
       const data = await res.json();
       const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
       setVerifyStatus(status);
-      setVerifyCode(data?.code || "");
       setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
 
       if (status === "verified") {
@@ -88,13 +87,19 @@ export default function LandingPage() {
     return () => window.clearInterval(iv);
   }, [user, verified, router]);
 
+  useEffect(() => {
+    if (verifyStatus !== "pending" || !expiresAt) return;
+    const iv = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(iv);
+  }, [verifyStatus, expiresAt]);
+
   const expiresIn = useMemo(() => {
     if (!expiresAt) return "";
-    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const diff = Math.max(0, Math.floor((expiresAt - nowMs) / 1000));
     const mins = Math.floor(diff / 60);
     const secs = diff % 60;
     return `${mins}:${String(secs).padStart(2, "0")}`;
-  }, [expiresAt]);
+  }, [expiresAt, nowMs]);
 
   const submit = async () => {
     if (!minecraftUsername.trim() || loading) return;
@@ -144,10 +149,9 @@ export default function LandingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
-      setVerifyCode(data?.code || "");
       setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
       setVerifyStatus("pending");
-      setVerifyMessage("Code generated. In Minecraft run /pay .LilHazMC 1");
+      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00");
     } catch (err) {
       setVerifyMessage(err instanceof Error ? err.message : "Failed to generate code.");
     } finally {
@@ -193,11 +197,10 @@ export default function LandingPage() {
               {isGeneratingCode ? "Generating..." : "Generate Verification Code"}
             </Button>
 
-            {verifyCode && (
+            {(verifyStatus === "pending" || verifyStatus === "expired") && (
               <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 mt-3">
-                <p className="text-xs font-black uppercase tracking-wider text-primary/80">Code</p>
-                <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
-                <p className="text-xs text-white/70 mt-1">In game: <span className="font-black text-white">/pay .LilHazMC 1</span></p>
+                <p className="text-xs font-black uppercase tracking-wider text-primary/80">In-game Command</p>
+                <p className="text-xl font-black text-primary tracking-wide">/pay .LilHazMC 1.00</p>
                 {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
               </div>
             )}

@@ -42,11 +42,14 @@ const ROW_HEIGHT = 44;  // px per row
 
 // Build plinko multiplier table based on difficulty
 const getPlinkoMults = (diff: Difficulty, rigIntensity: number): number[] => {
-  const noob = [1.6, 1.25, 1.05, 0.85, 0.65, 0.45, 0.65, 0.85, 1.05, 1.25, 1.6];
-  const pro = [2.4, 1.9, 1.5, 1.1, 0.8, 0.35, 0.8, 1.1, 1.5, 1.9, 2.4];
-  const expert = [4.5, 3.3, 2.4, 1.5, 0.9, 0, 0.9, 1.5, 2.4, 3.3, 4.5];
+  // Noob: easy profile with mostly small losses/small wins.
+  const noob = [1.4, 1.25, 1.1, 0.95, 0.85, 0.75, 0.85, 0.95, 1.1, 1.25, 1.4];
+  // Pro: medium risk and medium reward spread.
+  const pro = [2.4, 1.9, 1.45, 1.05, 0.75, 0.45, 0.75, 1.05, 1.45, 1.9, 2.4];
+  // Expert: center is very punishing, edges can pay high.
+  const expert = [6.5, 4.2, 2.7, 1.45, 0.5, 0.1, 0.5, 1.45, 2.7, 4.2, 6.5];
   const base = diff === "noob" ? noob : diff === "pro" ? pro : expert;
-  const diffScale = diff === "noob" ? 1 : diff === "pro" ? 1.25 : 1.6;
+  const diffScale = diff === "noob" ? 1 : diff === "pro" ? 1.08 : 1.18;
   return base.map((mult) => Number(scaleDownByRig(mult * diffScale, rigIntensity, 0.55).toFixed(2)));
 };
 
@@ -81,7 +84,7 @@ export default function GamePage() {
   const [revealed, setRevealed] = useState<boolean[]>(Array(25).fill(false));
   const [minesCashout, setMinesCashout] = useState(1.00);
   const rigIntensity = getRigIntensity(balance);
-  const mineCount = Math.min(24, Math.floor((difficulty === "noob" ? 8 : difficulty === "pro" ? 11 : 14) + rigIntensity * 5));
+  const mineCount = Math.min(24, Math.floor((difficulty === "noob" ? 6 : difficulty === "pro" ? 10 : 14) + rigIntensity * 5));
 
   // ===== DICE =====
   const [winChance, setWinChance] = useState(50);
@@ -100,7 +103,7 @@ export default function GamePage() {
     const h = Math.random() * 99;
     const target = Math.max(1.01, parseFloat((100 / (100 - h)).toFixed(2)));
     // Expert = lower average target
-    const adjustedTargetBase = difficulty === "noob" ? target * 0.95 : difficulty === "expert" ? target * 0.45 : target * 0.7;
+    const adjustedTargetBase = difficulty === "noob" ? target * 1.0 : difficulty === "expert" ? target * 0.5 : target * 0.72;
     const adjustedTarget = scaleDownByRig(adjustedTargetBase, rigIntensity, 0.55);
     setCrashMult(1.00); setHasCrashed(false); setIsPlaying(true);
     let current = 1.00;
@@ -161,7 +164,8 @@ export default function GamePage() {
   const startDice = () => {
     setIsPlaying(true); setIsRolling(true); setDiceRoll(null);
     // Noob: shifted win chance; Expert: harder
-    const baseChance = difficulty === "noob" ? winChance * 0.95 : difficulty === "expert" ? winChance * 0.65 : winChance * 0.8;
+    const baseChance = difficulty === "noob" ? winChance * 1.0 : difficulty === "expert" ? winChance * 0.62 : winChance * 0.8;
+    const payoutBoost = difficulty === "noob" ? 0.2 : difficulty === "pro" ? 0.28 : 0.36;
     const effectiveChance = Math.max(1, Math.min(95, scaleDownByRig(baseChance, rigIntensity, 0.45)));
     let ticks = 0;
     const iv = setInterval(() => {
@@ -172,7 +176,7 @@ export default function GamePage() {
         setDiceRoll(roll); setIsRolling(false); setIsPlaying(false);
         if (roll <= effectiveChance) {
           const raw = betAmount * (99 / winChance);
-          const payout = Math.floor(raw * scaleDownByRig(0.25, rigIntensity, 0.52));
+          const payout = Math.floor(raw * scaleDownByRig(payoutBoost, rigIntensity, 0.52));
           win(payout); showPopup(true, payout, `Rolled ${roll}! Won!`); useEconomy.getState().recordWin(betAmount, payout);
         } else { showPopup(false, 0, `Rolled ${roll}. Over ${effectiveChance.toFixed(0)}. Lost.`); useEconomy.getState().recordLoss(betAmount); }
       }
