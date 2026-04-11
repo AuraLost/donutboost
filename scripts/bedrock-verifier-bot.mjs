@@ -111,6 +111,16 @@ function isWhisperPacket(packet) {
   return type === "whisper" || type === "json_whisper";
 }
 
+function isLikelyDirectMessageToBot(packet, message) {
+  if (isWhisperPacket(packet)) return true;
+  const lower = String(message || "").toLowerCase();
+  const botLower = BOT_REPLY_NAME.toLowerCase();
+  if (lower.includes(botLower)) return true;
+  // Donut can emit /msg payloads as generic text packets; allow short code-like messages from a player source.
+  const code = extractCode(message);
+  return Boolean(code && String(packet?.source_name || "").trim());
+}
+
 function extractCode(message) {
   const match = String(message || "").match(/\b(\d{6})\b/);
   return match ? match[1] : null;
@@ -402,7 +412,7 @@ function attachHandlers(bot) {
     const sender = String(packet?.source_name || "").trim();
     const message = String(packet?.message || "").trim();
     if (!sender || !message) return;
-    if (!isWhisperPacket(packet)) return;
+    if (!isLikelyDirectMessageToBot(packet, message)) return;
     if (sender.toLowerCase() === BOT_REPLY_NAME.toLowerCase()) return;
     if (isRateLimited(sender)) return;
 
