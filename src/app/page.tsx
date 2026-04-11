@@ -1,99 +1,76 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@heroui/react";
-import { Play, ShieldCheck, X, Sword } from "lucide-react";
+import { Play, ShieldCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEconomy } from "@/hooks/use-economy";
 
-const WEB_USER_ID_KEY = "donutboost_web_user_id";
-const BOT_NAME = ".LilHazMC";
-
-const createWebUserId = () => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `web-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
-};
+type Mode = "login" | "register";
 
 export default function LandingPage() {
   const router = useRouter();
-  const [loginOpen, setLoginOpen] = useState(false);
+  const { setFromServer } = useEconomy();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [webUserId, setWebUserId] = useState("");
-  const [verifyCode, setVerifyCode] = useState("");
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
-  const [verifyStatus, setVerifyStatus] = useState<"idle" | "pending" | "verified" | "expired" | "error">("idle");
-  const [statusMessage, setStatusMessage] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const existing = localStorage.getItem(WEB_USER_ID_KEY);
-    if (existing) {
-      setWebUserId(existing);
-      return;
-    }
-    const created = createWebUserId();
-    localStorage.setItem(WEB_USER_ID_KEY, created);
-    setWebUserId(created);
-  }, []);
+    const check = async () => {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data?.user) return;
+      setFromServer({
+        balance: data.user.balance,
+        totalWins: data.user.totalWins,
+        totalLosses: data.user.totalLosses,
+        totalWagered: data.user.totalWagered,
+        totalPayout: data.user.totalPayout,
+      });
+      router.replace("/home");
+    };
 
-  useEffect(() => {
-    if (!loginOpen || verifyStatus !== "pending" || !webUserId) return;
-    const iv = window.setInterval(async () => {
-      try {
-        const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(webUserId)}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "verified") {
-          setVerifyStatus("verified");
-          setStatusMessage(`Linked to Minecraft account ${data.minecraftUsername}. Redirecting...`);
-          window.clearInterval(iv);
-          window.setTimeout(() => {
-            setLoginOpen(false);
-            router.push("/home");
-          }, 900);
-        } else if (data.status === "expired") {
-          setVerifyStatus("expired");
-          setStatusMessage("Code expired. Request a new one.");
-          window.clearInterval(iv);
-        }
-      } catch {
-        // Keep polling quietly.
-      }
-    }, 3000);
-    return () => window.clearInterval(iv);
-  }, [loginOpen, verifyStatus, webUserId, router]);
+    void check();
+  }, [router, setFromServer]);
 
-  const expiresIn = useMemo(() => {
-    if (!expiresAt) return "";
-    const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-    const mins = Math.floor(diff / 60);
-    const secs = diff % 60;
-    return `${mins}:${String(secs).padStart(2, "0")}`;
-  }, [expiresAt]);
+  const submit = async () => {
+    if (!username.trim() || !password.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
 
-  const handleVerify = async () => {
-    if (!username.trim() || isVerifying || !webUserId) return;
-    setIsVerifying(true);
-    setStatusMessage("");
     try {
-      const res = await fetch("/api/minecraft/request-code", {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          webUserId,
-          requestedUsername: username.trim(),
-        }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to request code.");
-      setVerifyCode(data.code);
-      setExpiresAt(data.expiresAt);
-      setVerifyStatus("pending");
-      setStatusMessage(`Code generated. Join DonutSMP.net and run /pay ${BOT_NAME} 1`);
-    } catch (error) {
-      setVerifyStatus("error");
-      setStatusMessage(error instanceof Error ? error.message : "Could not generate verification code.");
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Authentication failed.");
+      }
+
+      setFromServer({
+        balance: data.user.balance,
+        totalWins: data.user.totalWins,
+        totalLosses: data.user.totalLosses,
+        totalWagered: data.user.totalWagered,
+        totalPayout: data.user.totalPayout,
+      });
+
+      setMessage(mode === "register" ? "Account created. 1,000,000 bonus applied." : "Login successful.");
+      window.setTimeout(() => router.push("/home"), 400);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to authenticate.");
     } finally {
-      setIsVerifying(false);
+      setLoading(false);
     }
   };
 
@@ -108,75 +85,73 @@ export default function LandingPage() {
         </div>
 
         <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] md:text-xs font-black tracking-[0.2em] mb-6 uppercase">
-          <ShieldCheck size={14} /> Provably Fair · Donut SMP Economy
+          <ShieldCheck size={14} /> Members Only Access
         </div>
 
         <h1 className="text-4xl md:text-8xl font-black tracking-tight leading-[0.95] mb-4">
-          Multiply your <span className="text-primary italic">Wealth</span>
+          DonutBoost <span className="text-primary italic">Account Login</span>
         </h1>
         <p className="text-sm md:text-lg text-white/40 font-medium max-w-xl mx-auto leading-relaxed mb-8">
-          Casino games built for Donut SMP players with instant wallet-based gameplay.
+          Create an account to unlock all games. New users get a 1,000,000 bonus. Link Discord later for +500,000.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <Button onClick={() => setLoginOpen(true)} size="lg" className="bg-primary text-black font-black px-10 h-12 rounded-2xl">
-            <Play className="mr-2" size={18} fill="currentColor" />
-            Play Now
-          </Button>
-        </div>
+        <Button onClick={() => setAuthOpen(true)} size="lg" className="bg-primary text-black font-black px-10 h-12 rounded-2xl">
+          <Play className="mr-2" size={18} fill="currentColor" />
+          Login / Register
+        </Button>
       </div>
 
-      {loginOpen && (
+      {authOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => !isVerifying && setLoginOpen(false)} />
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => !loading && setAuthOpen(false)} />
           <div className="relative bg-[#0c0c0f] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-black animate-in zoom-in-95 duration-200">
-            <button onClick={() => !isVerifying && setLoginOpen(false)} className="absolute top-5 right-5 text-white/30 hover:text-white transition-colors">
+            <button onClick={() => !loading && setAuthOpen(false)} className="absolute top-5 right-5 text-white/30 hover:text-white transition-colors">
               <X size={20} />
             </button>
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-green-500/15 rounded-2xl">
-                <Sword size={26} className="text-green-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Minecraft Verification</h2>
-                <p className="text-xs text-white/30 font-bold uppercase tracking-widest mt-0.5">Donut SMP Members Only</p>
-              </div>
+
+            <h2 className="text-2xl font-black text-white tracking-tight">{mode === "login" ? "Login" : "Create Account"}</h2>
+            <p className="text-xs text-white/30 font-bold uppercase tracking-widest mt-1">
+              {mode === "login" ? "Welcome Back" : "New users start with $1,000,000"}
+            </p>
+
+            <div className="flex gap-2 mt-5 mb-4">
+              <button
+                onClick={() => setMode("login")}
+                className={`flex-1 h-10 rounded-xl text-sm font-black border ${mode === "login" ? "bg-primary text-black border-primary" : "bg-white/5 text-white border-white/10"}`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setMode("register")}
+                className={`flex-1 h-10 rounded-xl text-sm font-black border ${mode === "register" ? "bg-primary text-black border-primary" : "bg-white/5 text-white border-white/10"}`}
+              >
+                Register
+              </button>
             </div>
-            <div className="space-y-4">
-              <label className="text-xs font-black text-white/30 uppercase tracking-widest">Your Minecraft Username</label>
+
+            <div className="space-y-3">
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. Steve123"
-                className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-4 text-white font-bold text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50 transition-colors"
-                onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-                disabled={isVerifying}
+                placeholder="Username"
+                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-white font-bold text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50"
               />
-              <Button
-                onClick={handleVerify}
-                isDisabled={!username.trim() || isVerifying}
-                className="w-full h-12 bg-primary text-black font-black text-sm rounded-2xl shadow-lg shadow-primary/20"
-              >
-                {isVerifying ? "Generating Code..." : "Generate Verification Code"}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-white font-bold text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50"
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+              />
+
+              <Button onClick={submit} isDisabled={loading || !username.trim() || !password.trim()} className="w-full h-12 bg-primary text-black font-black rounded-xl">
+                {loading ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
               </Button>
-              {verifyCode && (
-                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/80 mb-1">Your Code</p>
-                  <p className="text-3xl font-black text-primary tracking-widest">{verifyCode}</p>
-                  <p className="text-xs text-white/60 mt-2">
-                    In Minecraft: <span className="font-black text-white">/pay {BOT_NAME} 1</span>
-                  </p>
-                  {verifyStatus === "pending" && (
-                  <p className="text-[11px] font-bold text-white/50 mt-1">Waiting for in-game /pay confirmation... expires in {expiresIn}</p>
-                  )}
-                </div>
-              )}
-              {statusMessage && (
-                <p className={`text-xs font-bold ${verifyStatus === "verified" ? "text-success" : verifyStatus === "error" ? "text-danger" : "text-white/60"}`}>
-                  {statusMessage}
-                </p>
-              )}
+
+              {message && <p className="text-xs text-success font-bold">{message}</p>}
+              {error && <p className="text-xs text-danger font-bold">{error}</p>}
             </div>
           </div>
         </div>

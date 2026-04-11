@@ -6,9 +6,6 @@ import { Wallet, Trophy, Skull, Gamepad2, Link2 } from "lucide-react";
 import { useEconomy } from "@/hooks/use-economy";
 import Link from "next/link";
 
-const DISCORD_KEY = "donutboost_discord_linked";
-const DISCORD_TAG_KEY = "donutboost_discord_tag";
-
 const formatMoney = (v: number) => {
   if (v >= 1e12) return "$" + (v / 1e12).toFixed(2) + "T";
   if (v >= 1e9) return "$" + (v / 1e9).toFixed(2) + "B";
@@ -18,14 +15,21 @@ const formatMoney = (v: number) => {
 };
 
 export default function HomeDashboardPage() {
-  const { balance, totalWins, totalLosses, totalWagered, totalPayout } = useEconomy();
+  const { balance, totalWins, totalLosses, totalWagered, totalPayout, hydrateFromUser } = useEconomy();
   const [discordLinked, setDiscordLinked] = useState(false);
   const [discordTag, setDiscordTag] = useState("");
 
   useEffect(() => {
-    setDiscordLinked(localStorage.getItem(DISCORD_KEY) === "true");
-    setDiscordTag(localStorage.getItem(DISCORD_TAG_KEY) || "");
-  }, []);
+    void hydrateFromUser();
+    const load = async () => {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setDiscordLinked(Boolean(data?.user?.discordLinked));
+      setDiscordTag(data?.user?.discordUsername || "");
+    };
+    void load();
+  }, [hydrateFromUser]);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10 animate-in fade-in duration-500">
