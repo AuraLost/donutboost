@@ -26,6 +26,8 @@ export default function HomeDashboardPage() {
   const [verifyMessage, setVerifyMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [checkingNow, setCheckingNow] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -42,24 +44,35 @@ export default function HomeDashboardPage() {
     void load();
   }, [hydrateFromUser]);
 
+  const checkVerificationStatus = async () => {
+    if (!userId) return;
+    const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
+    setVerifyStatus(status);
+    setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
+    setLastCheckedAt(Date.now());
+
+    if (status === "verified") {
+      setVerifyMessage(`Verified as ${data?.minecraftUsername || mcUsername}.`);
+    } else if (status === "pending") {
+      setVerifyMessage("Waiting for your in-game /pay to be detected...");
+    } else if (status === "expired") {
+      setVerifyMessage("Verification expired. Start again.");
+    } else {
+      setVerifyMessage("");
+    }
+  };
+
   useEffect(() => {
     if (!userId) return;
 
     const poll = async () => {
-      const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(userId)}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
-      setVerifyStatus(status);
-      setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
-      if (status === "verified") {
-        setVerifyMessage(`Verified as ${data?.minecraftUsername || mcUsername}.`);
-      } else if (status === "pending") {
-        setVerifyMessage("Waiting for in-game payment confirmation...");
-      } else if (status === "expired") {
-        setVerifyMessage("Verification code expired. Generate a new one.");
-      } else {
-        setVerifyMessage("");
+      try {
+        await checkVerificationStatus();
+      } catch {
+        // no-op
       }
     };
 
@@ -90,11 +103,22 @@ export default function HomeDashboardPage() {
       if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
       setExpiresAt(data.expiresAt || null);
       setVerifyStatus("pending");
-      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00");
+      setLastCheckedAt(Date.now());
+      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00, then click 'I Paid - Check Now'.");
     } catch (error) {
       setVerifyMessage(error instanceof Error ? error.message : "Failed to create verification code.");
     } finally {
       setIsGeneratingCode(false);
+    }
+  };
+
+  const checkNow = async () => {
+    if (checkingNow || !userId) return;
+    setCheckingNow(true);
+    try {
+      await checkVerificationStatus();
+    } finally {
+      setCheckingNow(false);
     }
   };
 
@@ -177,6 +201,10 @@ export default function HomeDashboardPage() {
                 <p className="text-xs font-black uppercase tracking-wider text-primary/80">In-game Command</p>
                 <p className="text-xl font-black text-primary tracking-wide">/pay .LilHazMC 1.00</p>
                 {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
+                <Button onClick={checkNow} isDisabled={checkingNow} className="mt-3 w-full bg-white/10 text-white font-black">
+                  {checkingNow ? "Checking..." : "I Paid - Check Now"}
+                </Button>
+                {lastCheckedAt && <p className="text-[11px] text-white/45 mt-2">Last checked: {new Date(lastCheckedAt).toLocaleTimeString()}</p>}
               </div>
             )}
 

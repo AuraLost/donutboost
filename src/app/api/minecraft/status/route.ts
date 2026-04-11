@@ -5,10 +5,18 @@ import { getSessionPayload } from "@/lib/session-user";
 
 export async function GET(req: Request) {
   try {
+    const session = await getSessionPayload();
+    if (!session?.uid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
-    const webUserId = searchParams.get("webUserId")?.trim() || "";
+    const webUserId = searchParams.get("webUserId")?.trim() || session.uid;
     if (!webUserId) {
       return NextResponse.json({ error: "Missing web user id." }, { status: 400 });
+    }
+    if (webUserId !== session.uid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const row = await getVerificationStatus(webUserId);
@@ -27,8 +35,7 @@ export async function GET(req: Request) {
 
     // If this request is from the same logged-in user and verification is complete, upgrade session.
     if (row.status === "verified") {
-      const session = await getSessionPayload();
-      if (session?.uid && session.uid === webUserId && !session.verified) {
+      if (session.uid === webUserId && !session.verified) {
         const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
         res.cookies.set(SESSION_COOKIE, createSessionToken(session.uid, true), sessionCookieOptionsForHost(host));
       }

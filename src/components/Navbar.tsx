@@ -17,8 +17,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEconomy } from "@/hooks/use-economy";
 
+const DISCORD_OAUTH_URL =
+  "https://discord.com/oauth2/authorize?client_id=1491214914075889664&response_type=code&redirect_uri=https%3A%2F%2Fwww.donutboost.lol%2F&scope=identify+email";
+
 export function Navbar() {
-  const { balance, hydrateFromUser, setFromServer } = useEconomy();
+  const { balance, hydrateFromUser } = useEconomy();
   const pathname = usePathname();
   const router = useRouter();
   const [walletOpen, setWalletOpen] = useState(false);
@@ -57,29 +60,9 @@ export function Navbar() {
     return "$" + val.toLocaleString();
   };
 
-  const handleLinkDiscord = async () => {
-    if (!discordTag.trim()) return;
-
-    const res = await fetch("/api/auth/link-discord", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ discordUsername: discordTag.trim() }),
-    });
-
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data?.user) return;
-
-    setDiscordLinked(true);
-    setDiscordTag(data.user.discordUsername || discordTag);
-    setFromServer({
-      balance: data.user.balance,
-      totalWins: data.user.totalWins,
-      totalLosses: data.user.totalLosses,
-      totalWagered: data.user.totalWagered,
-      totalPayout: data.user.totalPayout,
-    });
-    setView("main");
+  const handleLinkDiscord = () => {
+    if (discordLinked) return;
+    window.location.href = DISCORD_OAUTH_URL;
   };
 
   const handleLogout = async () => {
@@ -248,16 +231,11 @@ export function Navbar() {
                 </div>
 
                 <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={discordTag}
-                    onChange={(e) => setDiscordTag(e.target.value)}
-                    placeholder="e.g. @darren"
-                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-4 text-white font-bold text-sm placeholder:text-white/20 focus:outline-none focus:border-[#5865F2]/50 transition-colors"
-                    onKeyDown={(e) => e.key === "Enter" && handleLinkDiscord()}
-                  />
-                  <Button onClick={handleLinkDiscord} isDisabled={!discordTag.trim()} className="w-full h-12 bg-[#5865F2] text-white font-black text-sm rounded-2xl shadow-lg shadow-[#5865F2]/20 hover:scale-[1.02] transition-transform">
-                    Confirm & Claim $500K
+                  <div className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-4 flex items-center text-white/60 font-bold text-sm">
+                    {discordLinked ? `Connected: ${discordTag || "Discord"}` : "Authorize with Discord to claim +$500,000"}
+                  </div>
+                  <Button onClick={handleLinkDiscord} isDisabled={discordLinked} className="w-full h-12 bg-[#5865F2] text-white font-black text-sm rounded-2xl shadow-lg shadow-[#5865F2]/20 hover:scale-[1.02] transition-transform">
+                    {discordLinked ? "Already Linked" : "Connect Discord & Claim $500K"}
                   </Button>
                 </div>
               </>

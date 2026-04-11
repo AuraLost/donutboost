@@ -31,7 +31,11 @@ export default function LandingPage() {
   const [verifyMessage, setVerifyMessage] = useState("");
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [checkingNow, setCheckingNow] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [discordAuthBusy, setDiscordAuthBusy] = useState(false);
+  const [discordAuthMessage, setDiscordAuthMessage] = useState("");
 
   const syncEconomyFromUser = (u: SessionUser) => {
     setFromServer({
@@ -50,6 +54,48 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code")?.trim();
+    const oauthError = params.get("error")?.trim();
+    if (!code && !oauthError) return;
+
+    if (oauthError) {
+      setDiscordAuthMessage("Discord authorization was canceled or failed.");
+      params.delete("error");
+      params.delete("error_description");
+      window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
+      return;
+    }
+
+    setDiscordAuthBusy(true);
+    setDiscordAuthMessage("Linking Discord account...");
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/link-discord", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.user) throw new Error(data?.error || "Could not link Discord account.");
+
+        setUser(data.user);
+        syncEconomyFromUser(data.user);
+        setDiscordAuthMessage("Discord linked successfully. Bonus added if eligible.");
+      } catch (err) {
+        setDiscordAuthMessage(err instanceof Error ? err.message : "Failed to link Discord account.");
+      } finally {
+        params.delete("code");
+        window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`);
+        setDiscordAuthBusy(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     const check = async () => {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
       if (!res.ok) return;
@@ -58,33 +104,47 @@ export default function LandingPage() {
       setUser(data.user);
       setVerified(Boolean(data.verified));
       syncEconomyFromUser(data.user);
-      if (data.verified) {
+      if (data.verified && !discordAuthBusy) {
         router.replace("/home");
       }
     };
 
     void check();
-  }, [router, setFromServer]);
+  }, [router, setFromServer, discordAuthBusy]);
+
+  const checkVerificationStatus = async () => {
+    if (!user || verified) return;
+
+    const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
+    setVerifyStatus(status);
+    setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
+    setLastCheckedAt(Date.now());
+
+    if (status === "verified") {
+      setVerified(true);
+      setVerifyMessage("Verification complete. Redirecting...");
+      window.setTimeout(() => router.push("/home"), 450);
+    } else if (status === "pending") {
+      setVerifyMessage("Waiting for your in-game /pay to be detected...");
+    } else if (status === "expired") {
+      setVerifyMessage("Verification expired. Start again to continue.");
+    } else {
+      setVerifyMessage("No pending verification found. Start a new verification.");
+    }
+  };
 
   useEffect(() => {
     if (!user || verified) return;
 
     const poll = async () => {
-      const res = await fetch(`/api/minecraft/status?webUserId=${encodeURIComponent(user.id)}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      const status = (data?.status || "none") as "none" | "pending" | "verified" | "expired";
-      setVerifyStatus(status);
-      setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
-
-      if (status === "verified") {
-        setVerified(true);
-        setVerifyMessage("Verification complete. Redirecting...");
-        window.setTimeout(() => router.push("/home"), 450);
-      } else if (status === "pending") {
-        setVerifyMessage("Waiting for in-game /pay confirmation...");
-      } else if (status === "expired") {
-        setVerifyMessage("Code expired. Generate a new one.");
+      try {
+        await checkVerificationStatus();
+      } catch {
+        // no-op
       }
     };
 
@@ -120,7 +180,6 @@ export default function LandingPage() {
         body: JSON.stringify({ minecraftUsername: minecraftUsername.trim() }),
       });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data?.error || "Authentication failed.");
 
       setUser(data.user);
@@ -155,13 +214,25 @@ export default function LandingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create verification code.");
+
       setExpiresAt(typeof data?.expiresAt === "number" ? data.expiresAt : null);
       setVerifyStatus("pending");
-      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00");
+      setLastCheckedAt(Date.now());
+      setVerifyMessage("Verification started. In Minecraft run /pay .LilHazMC 1.00, then click 'I Paid - Check Now'.");
     } catch (err) {
       setVerifyMessage(err instanceof Error ? err.message : "Failed to generate code.");
     } finally {
       setIsGeneratingCode(false);
+    }
+  };
+
+  const checkNow = async () => {
+    if (checkingNow || !user) return;
+    setCheckingNow(true);
+    try {
+      await checkVerificationStatus();
+    } finally {
+      setCheckingNow(false);
     }
   };
 
@@ -208,9 +279,10 @@ export default function LandingPage() {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-primary/80">Verification Required</p>
             <p className="text-lg font-black text-white mt-2">Verify Minecraft Before Playing</p>
             <p className="text-xs text-white/60 mt-1">Logged in as {user.username}. Complete this to unlock all games.</p>
+            {discordAuthMessage && <p className="text-xs text-primary/90 mt-2">{discordAuthMessage}</p>}
 
-            <Button onClick={generateVerificationCode} isDisabled={isGeneratingCode} className="mt-4 bg-primary text-black font-black w-full">
-              {isGeneratingCode ? "Starting..." : "Start Verification"}
+            <Button onClick={generateVerificationCode} isDisabled={isGeneratingCode || discordAuthBusy} className="mt-4 bg-primary text-black font-black w-full">
+              {isGeneratingCode ? "Starting..." : verifyStatus === "pending" ? "Restart Verification" : "Start Verification"}
             </Button>
 
             {(verifyStatus === "pending" || verifyStatus === "expired") && (
@@ -218,6 +290,10 @@ export default function LandingPage() {
                 <p className="text-xs font-black uppercase tracking-wider text-primary/80">In-game Command</p>
                 <p className="text-xl font-black text-primary tracking-wide">/pay .LilHazMC 1.00</p>
                 {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
+                <Button onClick={checkNow} isDisabled={checkingNow || discordAuthBusy} className="mt-3 w-full bg-white/10 text-white font-black">
+                  {checkingNow ? "Checking..." : "I Paid - Check Now"}
+                </Button>
+                {lastCheckedAt && <p className="text-[11px] text-white/45 mt-2">Last checked: {new Date(lastCheckedAt).toLocaleTimeString()}</p>}
               </div>
             )}
 
