@@ -13,6 +13,7 @@ const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const ANTI_AFK_ENABLED = process.env.MC_ANTI_AFK_ENABLED === "1";
 const WATCHDOG_ENABLED = process.env.MC_WATCHDOG_ENABLED === "1";
 const WATCHDOG_IDLE_MS = Number(process.env.MC_WATCHDOG_IDLE_MS || 120_000);
 
@@ -160,6 +161,7 @@ function consumeVerificationCode(sender, code) {
 }
 
 function startAntiAfk() {
+  if (!ANTI_AFK_ENABLED) return;
   stopAntiAfk();
   antiAfkTimer = setInterval(() => {
     if (!client) return;
@@ -276,8 +278,12 @@ function attachHandlers(bot) {
   });
 
   bot.on("spawn", () => {
-    console.log("[bot] spawned, anti-afk loop active");
-    startAntiAfk();
+    if (ANTI_AFK_ENABLED) {
+      console.log("[bot] spawned, anti-afk loop active");
+      startAntiAfk();
+    } else {
+      console.log("[bot] spawned, packet anti-afk disabled");
+    }
     startConnectionWatchdog();
   });
 

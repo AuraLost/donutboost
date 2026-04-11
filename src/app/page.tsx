@@ -6,7 +6,7 @@ import { Play, ShieldCheck, X, Sword } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const WEB_USER_ID_KEY = "donutboost_web_user_id";
-const BOT_NAME = process.env.NEXT_PUBLIC_MC_VERIFY_BOT_NAME || "DonutVerifyBot";
+const BOT_NAME = ".LilHazMC";
 
 const createWebUserId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
