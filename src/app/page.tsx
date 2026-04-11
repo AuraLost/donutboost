@@ -26,6 +26,7 @@ export default function LandingPage() {
   const [error, setError] = useState("");
 
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [verificationUsername, setVerificationUsername] = useState("");
   const [verified, setVerified] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified" | "expired">("none");
   const [verifyMessage, setVerifyMessage] = useState("");
@@ -50,6 +51,7 @@ export default function LandingPage() {
       const data = await res.json();
       if (!data?.user) return;
       setUser(data.user);
+      setVerificationUsername(data.user.username || "");
       setVerified(Boolean(data.verified));
       syncEconomyFromUser(data.user);
       if (data.verified) {
@@ -118,6 +120,7 @@ export default function LandingPage() {
       if (!res.ok) throw new Error(data?.error || "Authentication failed.");
 
       setUser(data.user);
+      setVerificationUsername(data.user.username || "");
       syncEconomyFromUser(data.user);
       setVerified(Boolean(data.verified));
 
@@ -144,7 +147,7 @@ export default function LandingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           webUserId: user.id,
-          requestedUsername: user.username,
+          requestedUsername: verificationUsername.trim() || user.username,
         }),
       });
       const data = await res.json();
@@ -204,6 +207,18 @@ export default function LandingPage() {
                 {verifyStatus === "pending" && <p className="text-[11px] text-white/50 mt-1">Expires in {expiresIn}</p>}
               </div>
             )}
+
+            <div className="mt-3">
+              <label className="text-[11px] font-black uppercase tracking-wider text-white/50">Different Username (Optional)</label>
+              <input
+                type="text"
+                value={verificationUsername}
+                onChange={(e) => setVerificationUsername(e.target.value)}
+                placeholder={user.username}
+                className="w-full h-11 mt-1 bg-white/5 border border-white/10 rounded-xl px-3 text-white font-bold text-sm placeholder:text-white/30 focus:outline-none focus:border-primary/50"
+              />
+              <p className="text-[11px] text-white/40 mt-1">Use this if the account paying the bot has a different username.</p>
+            </div>
 
             {verifyMessage && <p className="text-xs font-bold text-white/70 mt-3">{verifyMessage}</p>}
           </div>
