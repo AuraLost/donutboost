@@ -13,6 +13,8 @@ const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const WATCHDOG_ENABLED = process.env.MC_WATCHDOG_ENABLED === "1";
+const WATCHDOG_IDLE_MS = Number(process.env.MC_WATCHDOG_IDLE_MS || 120_000);
 
 let client = null;
 let reconnectDelay = 2_000;
@@ -227,11 +229,12 @@ function stopAntiAfk() {
 }
 
 function startConnectionWatchdog() {
+  if (!WATCHDOG_ENABLED) return;
   stopConnectionWatchdog();
   connectionWatchdogTimer = setInterval(() => {
     if (!client) return;
     const idleMs = Date.now() - lastPacketAt;
-    if (idleMs > 25_000) {
+    if (idleMs > WATCHDOG_IDLE_MS) {
       console.warn(`[bot] packet watchdog triggered (${idleMs}ms idle), reconnecting`);
       try {
         client.close();
