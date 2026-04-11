@@ -1,25 +1,35 @@
 import { NextResponse } from "next/server";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth-session";
-import { getUserByUsername, toPublicUser } from "@/lib/user-store";
-import { verifyPassword } from "@/lib/password";
+import { createUser, getUserByUsername, toPublicUser } from "@/lib/user-store";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const username = String(body?.username || "").trim();
-    const password = String(body?.password || "");
+    const rawUsername = String(body?.minecraftUsername || body?.username || "").trim();
 
-    if (!username || !password) {
-      return NextResponse.json({ error: "Missing username or password." }, { status: 400 });
+    if (!/^[a-zA-Z0-9_]{3,16}$/.test(rawUsername)) {
+      return NextResponse.json({ error: "Minecraft username must be 3-16 chars (letters, numbers, underscore)." }, { status: 400 });
     }
 
-    const user = await getUserByUsername(username);
-    if (!user || !verifyPassword(password, user.password_hash)) {
-      return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
+    let user = await getUserByUsername(rawUsername);
+    let firstLogin = false;
+
+    if (!user) {
+      firstLogin = true;
+      try {
+        user = await createUser({ username: rawUsername });
+      } catch {
+        // Handles race conditions where multiple requests create same user.
+        user = await getUserByUsername(rawUsername);
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Could not login right now. Try again." }, { status: 500 });
     }
 
     const token = createSessionToken(user.id);
-    const res = NextResponse.json({ ok: true, user: toPublicUser(user) });
+    const res = NextResponse.json({ ok: true, firstLogin, user: toPublicUser(user) });
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
     return res;
   } catch (error) {

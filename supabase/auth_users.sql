@@ -16,3 +16,4 @@ create table if not exists public.app_users (
 );
 
 create index if not exists idx_app_users_username on public.app_users(username);
+create unique index if not exists uq_app_users_username_lower on public.app_users ((lower(username)));

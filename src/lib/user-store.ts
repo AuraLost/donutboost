@@ -41,11 +41,18 @@ const normalize = (row: AppUser): PublicUser => ({
 
 const db = () => getSupabaseAdmin() as any;
 
+export const normalizeMinecraftUsername = (value: string) => value.trim().toLowerCase();
+
 export const getUserByUsername = async (username: string) => {
-  const { data, error } = await db().from(TABLE).select("*").eq("username", username).maybeSingle();
+  const normalized = normalizeMinecraftUsername(username);
+  const { data, error } = await db()
+    .from(TABLE)
+    .select("*")
+    .ilike("username", normalized)
+    .limit(1);
 
   if (error) throw new Error(error.message);
-  return (data as AppUser | null) ?? null;
+  return Array.isArray(data) && data.length > 0 ? (data[0] as AppUser) : null;
 };
 
 export const getUserById = async (id: string) => {
@@ -55,12 +62,14 @@ export const getUserById = async (id: string) => {
   return (data as AppUser | null) ?? null;
 };
 
-export const createUser = async (params: { username: string; passwordHash: string }) => {
+export const createUser = async (params: { username: string }) => {
+  const trimmed = params.username.trim();
   const { data, error } = await db()
     .from(TABLE)
     .insert({
-      username: params.username,
-      password_hash: params.passwordHash,
+      username: trimmed,
+      // Kept for backward compatibility with existing table schema.
+      password_hash: "__username_only_login__",
       balance: 1_000_000,
       total_wins: 0,
       total_losses: 0,
