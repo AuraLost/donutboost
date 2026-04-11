@@ -22,6 +22,7 @@ let isStopping = false;
 let tickCounter = 0;
 let currentPosition = { x: 0, y: 0, z: 0 };
 let runtimeEntityId = null;
+let canSendMovePlayer = true;
 let lastPacketAt = Date.now();
 
 const senderRateLimit = new Map();
@@ -181,25 +182,39 @@ function startAntiAfk() {
         camera_orientation: { x: 0, y: 0, z: 1 },
         raw_move_vector: { x: wiggle, z: 0 },
       });
-      if (runtimeEntityId !== null) {
-        client.queue("move_player", {
-          runtime_id: runtimeEntityId,
-          position: {
-            x: currentPosition.x + wiggle * 0.02,
-            y: currentPosition.y,
-            z: currentPosition.z,
-          },
-          pitch: 0,
-          yaw,
-          head_yaw: yaw,
-          mode: "normal",
-          on_ground: true,
-          ridden_runtime_id: 0,
-          tick: tickCounter,
-        });
-      }
     } catch (error) {
-      console.error("[bot] anti-afk send error:", error);
+      console.error("[bot] anti-afk auth-input error:", error);
+    }
+
+    if (!canSendMovePlayer || runtimeEntityId === null) return;
+    try {
+      const normalizedRuntimeId =
+        typeof runtimeEntityId === "bigint" ? Number(runtimeEntityId) : Number(runtimeEntityId);
+      if (!Number.isSafeInteger(normalizedRuntimeId) || normalizedRuntimeId <= 0) {
+        canSendMovePlayer = false;
+        console.warn("[bot] disabling move_player anti-afk (invalid runtime entity id)");
+        return;
+      }
+
+      client.queue("move_player", {
+        runtime_id: normalizedRuntimeId,
+        position: {
+          x: currentPosition.x + wiggle * 0.02,
+          y: currentPosition.y,
+          z: currentPosition.z,
+        },
+        pitch: 0,
+        yaw,
+        head_yaw: yaw,
+        mode: "normal",
+        on_ground: true,
+        ridden_runtime_id: 0,
+        tick: tickCounter,
+      });
+    } catch (error) {
+      canSendMovePlayer = false;
+      console.warn("[bot] disabling move_player anti-afk after packet error");
+      console.error("[bot] anti-afk move-player error:", error);
     }
   }, 2_500);
 }
@@ -252,6 +267,7 @@ function attachHandlers(bot) {
     reconnectDelay = 2_000;
     lastPacketAt = Date.now();
     runtimeEntityId = null;
+    canSendMovePlayer = true;
     console.log("[bot] joined server");
   });
 
