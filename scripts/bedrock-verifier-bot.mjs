@@ -8,7 +8,7 @@ const HOST = process.env.MC_SERVER_HOST || "DonutSMP.net";
 const PORT = Number(process.env.MC_SERVER_PORT || 19132);
 const PROFILE_NAME = process.env.MC_BOT_PROFILE || "DonutVerifyBot";
 const BOT_REPLY_NAME = (process.env.MC_VERIFY_BOT_NAME || PROFILE_NAME).trim();
-const RAKNET_BACKEND = process.env.MC_RAKNET_BACKEND || "jsp-raknet";
+const RAKNET_BACKEND = process.env.MC_RAKNET_BACKEND || "raknet-native";
 const PROFILES_FOLDER = process.env.MC_PROFILES_FOLDER || path.join(process.cwd(), ".minecraft-bot");
 const DB_PATH =
   process.env.MC_VERIFY_DB_PATH || path.join(process.cwd(), "data", "minecraft-verification.db");
